@@ -7,27 +7,43 @@ const NAV = [
   { key: "services", label: "SERVICES", href: "#services" },
 ];
 
-export default function Header() {
-  const [activeKey, setActiveKey] = useState(() => {
-    const raw = window.location.hash?.replace("#", "").toLowerCase();
-    return raw || "services";
-  });
+const NAV_KEYS = new Set(NAV.map((item) => item.key));
+
+function getActiveKeyFromLocation(fallbackKey) {
+  const hashKey = window.location.hash?.replace("#", "").toLowerCase();
+  if (hashKey && NAV_KEYS.has(hashKey)) return hashKey;
+
+  const path = window.location.pathname?.toLowerCase() ?? "";
+  if (path.includes("blog")) return "blog";
+  if (path.includes("service")) return "services";
+
+  if (NAV_KEYS.has(fallbackKey)) return fallbackKey;
+  return NAV[0]?.key ?? "services";
+}
+
+export default function Header({ defaultActiveKey = "services" }) {
+  const [activeKey, setActiveKey] = useState(() =>
+    getActiveKeyFromLocation(defaultActiveKey),
+  );
 
   useEffect(() => {
-    const onHashChange = () => {
-      const raw = window.location.hash?.replace("#", "").toLowerCase();
-      setActiveKey(raw || "services");
+    const onLocationChange = () => {
+      setActiveKey(getActiveKeyFromLocation(defaultActiveKey));
     };
 
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
+    window.addEventListener("hashchange", onLocationChange);
+    window.addEventListener("popstate", onLocationChange);
+    return () => {
+      window.removeEventListener("hashchange", onLocationChange);
+      window.removeEventListener("popstate", onLocationChange);
+    };
+  }, [defaultActiveKey]);
 
   return (
-    <header className="w-full bg-white border-b border-black/10">
-      <div className="mx-auto flex max-w-[1980px] flex-col items-center px-6 py-10">
-        <div className="flex items-center gap-4">
-          <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-[#b9ab93]">
+    <header className="w-full bg-white">
+      <div className="mx-auto flex max-w-495 flex-col items-center px-6 pb-10 pt-12 sm:pb-12 sm:pt-14">
+        <div className="flex items-center justify-center gap-5 sm:gap-6">
+          <div className="grid h-37.5 w-37.5 place-items-center overflow-hidden rounded-full bg-[#b9ab93] sm:h-20 sm:w-20">
             <img
               className="h-full w-full object-cover"
               src={logo}
@@ -35,13 +51,17 @@ export default function Header() {
             />
           </div>
 
-          <div className="font-luxury text-left uppercase leading-[1.05] tracking-[0.18em] text-black">
-            <div className="text-[28px]">REFINE HAUS</div>
-            <div className="text-[28px]">CLINIC</div>
+          <div className="font-luxury text-left uppercase leading-[0.98] tracking-[0.18em] text-black">
+            <div className="text-[25px] sm:text-[35px] md:text-[47px]">
+              REFINE HAUS
+            </div>
+            <div className="text-[25px] sm:text-[35px] md:text-[47px]">
+              CLINIC
+            </div>
           </div>
         </div>
 
-        <nav className="mt-8 flex items-center justify-center gap-10 text-[12px] uppercase tracking-[0.28em] text-black">
+        <nav className="mt-10 flex flex-wrap items-center justify-center gap-x-14 gap-y-4 font-luxury text-[20px] uppercase tracking-[0.28em] text-black sm:mt-12 sm:gap-x-20 sm:text-[19px] md:gap-x-24 md:text-[20px]">
           {NAV.map((item) => {
             const isActive = item.key === activeKey;
             return (
@@ -51,9 +71,11 @@ export default function Header() {
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => setActiveKey(item.key)}
                 className={[
-                  "border-b pb-1 transition-colors",
-                  isActive ? "border-black" : "border-transparent",
-                  "hover:border-black/60",
+                  "relative pb-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30",
+                  "after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-black after:origin-left after:transition-transform after:duration-200 after:content-['']",
+                  isActive
+                    ? "after:scale-x-100"
+                    : "after:scale-x-0 hover:after:scale-x-100",
                 ].join(" ")}
               >
                 {item.label}

@@ -1,11 +1,17 @@
 @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Source+Sans+3:wght@400;500;600&display=swap");
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 @layer base {
   body {
-    @apply font-sans text-black;
+    font-family: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+    color: #000;
+    background-color: #fff;
+  }
+}
+
+@layer utilities {
+  .font-luxury {
+    font-family: "Cormorant Garamond", ui-serif, Georgia, serif;
   }
 }
