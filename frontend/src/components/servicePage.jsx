@@ -3,9 +3,9 @@ import ServiceCard from "./serviceCard";
 
 export default function ServicePage() {
   return (
-    <section id="services" className="bg-[#cbbda4] px-6 py-16">
-      <div className="mx-auto max-w-[1280px]">
-        <div className="relative z-10 mx-auto w-full max-w-[820px] bg-white py-5 text-center shadow-sm">
+    <section id="services" className="bg-[#E6D4B9] px-6 py-16">
+      <div className="mx-auto max-w-7xl">
+        <div className="relative z-10 mx-auto w-full max-w-205 bg-white py-5 text-center shadow-sm">
           <h2 className="font-luxury text-[26px] tracking-[0.12em] text-[#9b7a2f]">
             Services
           </h2>
