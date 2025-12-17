@@ -46,22 +46,44 @@ export default function Footer() {
 
           <div className="lg:text-right">
             <h2 className="font-luxury text-[44px] leading-none tracking-[0.02em] sm:text-[54px]">
-              Quick Links
+              Socials
             </h2>
 
             <div className="mt-10 space-y-3 text-[16px] text-white/90">
               <a
                 className="inline-block hover:underline hover:underline-offset-4"
-                href="#contact"
+                href="https://www.facebook.com/p/RefineHaus-Clinic-61567065729399/"
+                target="_blank"
+                rel="noreferrer"
               >
-                Contact
+                Facebook
               </a>
               <div>
                 <a
                   className="inline-block hover:underline hover:underline-offset-4"
                   href="mailto:refinehausclinic@gmail.com"
                 >
-                  Customer Service
+                  refinehausclinic@gmail.com
+                </a>
+              </div>
+              <div>
+                <a
+                  className="inline-block hover:underline hover:underline-offset-4"
+                  href="https://www.instagram.com/refinehaus.clinic"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Instagram
+                </a>
+              </div>
+              <div>
+                <a
+                  className="inline-block hover:underline hover:underline-offset-4"
+                  href="https://www.tiktok.com/@refinehaus.clinic"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  TikTok
                 </a>
               </div>
             </div>
