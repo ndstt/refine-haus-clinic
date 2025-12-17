@@ -1,34 +1,22 @@
-import ServiceCard from './ServiceCard'
-import { services } from '../data/service'
+import { services } from "../data/service";
+import ServiceCard from "./serviceCard";
 
-export default function ServicesPage(){
+export default function ServicesPage() {
   return (
-    <main className="px-6 pt-10 pb-16">
-      <section className="mx-auto w-full max-w-6xl rounded-3xl bg-white/50 backdrop-blur border border-white/70 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.35)] overflow-hidden">
-        <div className="px-6 sm:px-10 pt-10 pb-6 bg-[linear-gradient(180deg,rgba(180,136,47,0.10),rgba(255,255,255,0.00))] border-b border-black/5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
-            <div>
-              <h2 className="font-serif text-3xl sm:text-4xl font-semibold tracking-tight text-amber-950">
-                Services
-              </h2>
-              <p className="mt-2 text-sm sm:text-base text-black/60 max-w-2xl">
-                Curated treatments designed for glow, clarity, and long-term skin health.
-              </p>
-            </div>
-            <div className="text-sm text-black/50">
-              {services.length} treatments
-            </div>
+    <main className="bg-[#d7c7a6]">
+      <section className="mx-auto max-w-6xl px-4 py-8">
+        <div className="bg-[#f6e7d8] border border-black/10 px-6 py-7">
+          <div className="mx-auto mb-7 max-w-2xl bg-white border border-black/10 shadow-[0_10px_22px_rgba(0,0,0,0.12)] text-center py-4">
+            <h2 className="font-serif text-lg tracking-wide text-[#b8933e]">Services</h2>
           </div>
-        </div>
 
-        <div className="p-6 sm:p-10">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {services.map((service) => (
-              <ServiceCard key={service.id} service={service} />
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {services.map((s) => (
+              <ServiceCard key={s.id} service={s} />
             ))}
           </div>
         </div>
       </section>
     </main>
-  )
+  );
 }

@@ -1,11 +1,9 @@
-import Header from './components/Header'
-import ServicesPage from './components/ServicePage'
-import Footer from './components/Footer'
+import Header from "./components/Header";
 
-export default function App(){
+export default function App() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#fbf8f3] via-[#f6f1eb] to-[#d6c6aa] text-[#2f2b2a]">
+    <div className="min-h-screen">
       <Header />
     </div>
-  )
+  );
 }

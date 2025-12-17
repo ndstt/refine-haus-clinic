@@ -1,41 +1,67 @@
-import logo from '../assets/rfc-logo.jpg'
+import { useEffect, useState } from "react";
+import logo from "../assets/rhc-logo.png";
 
-export default function Header(){
+const NAV = [
+  { key: "home", label: "HOME", href: "#home" },
+  { key: "blog", label: "BLOG", href: "#blog" },
+  { key: "services", label: "SERVICES", href: "#services" },
+];
+
+export default function Header() {
+  const [activeKey, setActiveKey] = useState(() => {
+    const raw = window.location.hash?.replace("#", "").toLowerCase();
+    return raw || "services";
+  });
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const raw = window.location.hash?.replace("#", "").toLowerCase();
+      setActiveKey(raw || "services");
+    };
+
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
   return (
-    <header className="sticky top-0 z-50 border-b border-white/5 bg-white/70 backdrop-blur">
-      <div className="mx-auto max-w-6xl px-6 py-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
-        <a href="#" className="flex items-center gap-5 no-underline text-black visited:text-black hover:text-black">
-          <div className="pr-[8px] overflow-hidden">
-            <img src={logo} alt="Refine Haus Clinic logo" className="h-[50px] w-[50px] rounded-full object-cover" />
+    <header className="w-full bg-white border-b border-black/10">
+      <div className="mx-auto flex max-w-[1980px] flex-col items-center px-6 py-10">
+        <div className="flex items-center gap-4">
+          <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-[#b9ab93]">
+            <img
+              className="h-full w-full object-cover"
+              src={logo}
+              alt="Refine Haus Clinic"
+            />
           </div>
-          <div className="font-serif leading-none">
-            <div className="text-xl font-semibold tracking-wide">REFINE HAUS</div>
-            <div className="text-xl font-semibold tracking-wide">CLINIC</div>
-          </div>
-        </a>
 
-        <nav className="flex flex-wrap items-center justify-center gap-2 text-sm font-medium uppercase tracking-wider">
-          <a
-            href="#"
-            className="rounded-full px-4 py-2 text-black visited:text-black no-underline hover:bg-black/5 transition-colors"
-          >
-            Home
-          </a>
-          <a
-            href="#"
-            className="rounded-full px-4 py-2 text-black visited:text-black no-underline hover:bg-black/5 transition-colors"
-          >
-            Blog
-          </a>
-          <a
-            href="#"
-            aria-current="page"
-            className="rounded-full px-4 py-2 text-black visited:text-black no-underline hover:bg-black/5 transition-colors"
-          >
-            Services
-          </a>
+          <div className="font-luxury text-left uppercase leading-[1.05] tracking-[0.18em] text-black">
+            <div className="text-[28px]">REFINE HAUS</div>
+            <div className="text-[28px]">CLINIC</div>
+          </div>
+        </div>
+
+        <nav className="mt-8 flex items-center justify-center gap-10 text-[12px] uppercase tracking-[0.28em] text-black">
+          {NAV.map((item) => {
+            const isActive = item.key === activeKey;
+            return (
+              <a
+                key={item.key}
+                href={item.href}
+                aria-current={isActive ? "page" : undefined}
+                onClick={() => setActiveKey(item.key)}
+                className={[
+                  "border-b pb-1 transition-colors",
+                  isActive ? "border-black" : "border-transparent",
+                  "hover:border-black/60",
+                ].join(" ")}
+              >
+                {item.label}
+              </a>
+            );
+          })}
         </nav>
       </div>
     </header>
-  )
+  );
 }
