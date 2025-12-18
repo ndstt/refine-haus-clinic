@@ -11,7 +11,7 @@ export default function Footer() {
             </h2>
 
             <div className="mt-10 space-y-1 text-[14px] leading-relaxed text-white/90 sm:text-[15px]">
-              <div>+66 093 498 2391</div>
+              <div>(+66) 083 423 9329</div>
               <div className="font-semibold uppercase tracking-[0.04em]">
                 CV. REFINE HAUS CLINIC
               </div>
@@ -21,9 +21,9 @@ export default function Footer() {
               >
                 refinehausclinic@gmail.com
               </a>
-              <div>129 Sukhumvit 42 Road, Phra Khanong</div>
-              <div>Subdistrict, Khlong Toei District, Bangkok</div>
-              <div>10110, Thailand</div>
+              <div>1282/2 Mittraphap Road, Nai Mueng Subdistrict</div>
+              <div>Mueng Nakhon Ratchasima District, Nakhon Ratchasima</div>
+              <div>30000, Thailand</div>
             </div>
           </div>
 
@@ -58,14 +58,6 @@ export default function Footer() {
               >
                 Facebook
               </a>
-              <div>
-                <a
-                  className="inline-block hover:underline hover:underline-offset-4"
-                  href="mailto:refinehausclinic@gmail.com"
-                >
-                  refinehausclinic@gmail.com
-                </a>
-              </div>
               <div>
                 <a
                   className="inline-block hover:underline hover:underline-offset-4"
