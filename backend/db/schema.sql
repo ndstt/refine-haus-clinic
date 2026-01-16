@@ -76,7 +76,6 @@ CREATE TYPE "invoice_promo_line_type" AS ENUM (
 CREATE TABLE "sell_invoice_item" (
   "sell_item_id" bigint,
   "sell_invoice_id" bigint,
-  "item_type" item_type,
   "description" varchar,
   "qty" int,
   "total_price" decimal(10,2),
@@ -90,8 +89,7 @@ CREATE TABLE "sell_invoice" (
   "total_amount" decimal(10,2),
   "discount_amount" decimal(10,2),
   "final_amount" decimal(10,2),
-  "status" invoice_status,
-  "note" varchar
+  "status" invoice_status
 );
 
 CREATE TABLE "payment" (
@@ -136,10 +134,9 @@ CREATE TABLE "stock_movement" (
   "created_at" timestamp DEFAULT (now()),
   "item_id" bigint,
   "movement_type" stock_movement_type,
-  "qty" decimal(10,2),
+  "qty" int,
   "sell_invoice_id" bigint,
   "purchase_invoice_id" bigint,
-  "note" varchar,
   "expired_at" timestamp,
   PRIMARY KEY ("created_at", "item_id")
 );
@@ -148,16 +145,23 @@ CREATE TABLE "supplier" (
   "supplier_id" bigint PRIMARY KEY,
   "name" varchar,
   "phone" varchar(10),
-  "address" varchar,
-  "note" varchar
+  "address" varchar
 );
 
 CREATE TABLE "purchase_invoice" (
   "purchase_invoice_id" bigint PRIMARY KEY,
   "supplier_id" bigint,
   "issue_date" datetime,
-  "total_amount" decimal(10,2),
-  "note" varchar
+  "total_amount" decimal(10,2)
+);
+
+CREATE TABLE "purchase_invoice_item" (
+  "purchase_item_id" bigint,
+  "purchase_invoice_id" bigint,
+  "qty" int,
+  "purchase_price_per_unit" decimal(10,2),
+  "description" varchar,
+  PRIMARY KEY ("purchase_item_id", "purchase_invoice_id")
 );
 
 CREATE TABLE "treatment_recipe" (
@@ -165,7 +169,6 @@ CREATE TABLE "treatment_recipe" (
   "item_id" bigint,
   "qty_per_session" decimal(10,2),
   "sell_price" decimal(10,2),
-  "note" varchar,
   PRIMARY KEY ("treatment_id", "item_id")
 );
 
@@ -194,8 +197,7 @@ CREATE TABLE "promotion_benefit" (
   "value_percent" decimal(10,2),
   "value_amount" decimal(10,2),
   "free_item_id" bigint,
-  "free_qty_base_unit" decimal(10,2),
-  "note" varchar
+  "free_qty_base_unit" decimal(10,2)
 );
 
 CREATE TABLE "promotion_redemption" (
@@ -244,6 +246,63 @@ CREATE TABLE "sell_invoice_promotion_line" (
   "created_at" timestamp
 );
 
+-- ATTRIBUTES COMMENTS
+COMMENT ON COLUMN "promotion"."code" IS 'nullable (coupon code)';
+
+COMMENT ON COLUMN "promotion"."description" IS 'nullable';
+
+COMMENT ON COLUMN "promotion"."end_at" IS 'nullable';
+
+COMMENT ON COLUMN "promotion"."max_redemptions_total" IS 'nullable';
+
+COMMENT ON COLUMN "promotion"."max_redemptions_per_customer" IS 'nullable';
+
+COMMENT ON COLUMN "promotion_benefit"."target_item_id" IS 'nullable, FK -> item_catalog.item_id (for LINE_ITEM scope)';
+
+COMMENT ON COLUMN "promotion_benefit"."value_percent" IS 'nullable, for PERCENT_DISCOUNT';
+
+COMMENT ON COLUMN "promotion_benefit"."value_amount" IS 'nullable, for AMOUNT_DISCOUNT / WALLET_CREDIT';
+
+COMMENT ON COLUMN "promotion_benefit"."free_item_id" IS 'nullable, FK -> item_catalog.item_id (for FREE_ITEM)';
+
+COMMENT ON COLUMN "promotion_benefit"."free_qty_base_unit" IS 'nullable, base unit qty for FREE_ITEM';
+
+COMMENT ON COLUMN "promotion_redemption"."sell_invoice_id" IS 'FK -> sell_invoice.sell_invoice_id';
+
+COMMENT ON COLUMN "promotion_redemption"."customer_id" IS 'FK -> customer.customer_id';
+
+COMMENT ON COLUMN "promotion_redemption"."coupon_code_used" IS 'nullable';
+
+COMMENT ON COLUMN "promotion_condition_group"."sort_order" IS 'OR groups ordered for evaluation/UI';
+
+COMMENT ON TABLE "promotion_condition_rule" IS 'Rules inside same group = AND. Different groups = OR.';
+
+COMMENT ON COLUMN "promotion_condition_rule"."amount_value" IS 'Used by MIN_SPEND etc. nullable';
+
+COMMENT ON COLUMN "promotion_condition_rule"."item_id" IS 'FK -> item_catalog.item_id nullable';
+
+COMMENT ON COLUMN "promotion_condition_rule"."qty_base_unit" IS 'Used by MIN_QTY_ITEM nullable';
+
+COMMENT ON COLUMN "promotion_condition_rule"."text_value" IS 'Used by MEMBER_TIER_IN or similar nullable';
+
+COMMENT ON COLUMN "sell_invoice_promotion_line"."sell_invoice_item_id" IS 'nullable, FK -> sell_invoice_item.sell_invoice_item_id';
+
+COMMENT ON COLUMN "sell_invoice_promotion_line"."amount" IS 'Discount should be negative';
+
+COMMENT ON COLUMN "sell_invoice_promotion_line"."free_item_id" IS 'nullable, FK -> item_catalog.item_id';
+
+COMMENT ON COLUMN "sell_invoice_promotion_line"."free_qty_base_unit" IS 'nullable';
+
+COMMENT ON COLUMN "sell_invoice_promotion_line"."stock_movement_id" IS 'nullable, FK -> stock_movement.stock_movement_id';
+
+COMMENT ON COLUMN "sell_invoice_promotion_line"."wallet_credit_amount" IS 'nullable';
+
+COMMENT ON COLUMN "sell_invoice_promotion_line"."wallet_movement_id" IS 'nullable, FK -> wallet_movement.wallet_movement_id';
+
+COMMENT ON COLUMN "sell_invoice_promotion_line"."description" IS 'nullable';
+
+COMMENT ON COLUMN "sell_invoice_promotion_line"."created_at" IS 'default now()';
+
 -- FOREIGN KEYS
 ALTER TABLE "promotion_benefit" ADD FOREIGN KEY ("promotion_id") REFERENCES "promotion" ("promotion_id");
 
@@ -273,7 +332,7 @@ ALTER TABLE "stock_movement" ADD FOREIGN KEY ("item_id") REFERENCES "item_catalo
 
 ALTER TABLE "sell_invoice_item" ADD FOREIGN KEY ("sell_invoice_id") REFERENCES "sell_invoice" ("sell_invoice_id");
 
-ALTER TABLE "purchase_invoice" ADD FOREIGN KEY ("purchase_invoice_id") REFERENCES "stock_movement" ("purchase_invoice_id");
+ALTER TABLE "stock_movement" ADD FOREIGN KEY ("purchase_invoice_id") REFERENCES "purchase_invoice" ("purchase_invoice_id");
 
 ALTER TABLE "purchase_invoice" ADD FOREIGN KEY ("supplier_id") REFERENCES "supplier" ("supplier_id");
 
@@ -282,3 +341,8 @@ ALTER TABLE "stock_movement" ADD FOREIGN KEY ("sell_invoice_id") REFERENCES "sel
 ALTER TABLE "treatment_recipe" ADD FOREIGN KEY ("item_id") REFERENCES "item_catalog" ("item_id");
 
 ALTER TABLE "promotion_redemption" ADD FOREIGN KEY ("sell_invoice_id") REFERENCES "sell_invoice" ("sell_invoice_id");
+
+ALTER TABLE "purchase_invoice_item" ADD FOREIGN KEY ("purchase_item_id") REFERENCES "purchase_invoice" ("purchase_invoice_id");
+
+-- TRIGGERS & FUNCTIONS
+-- (none for now)
