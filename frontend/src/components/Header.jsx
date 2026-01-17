@@ -12,7 +12,7 @@ const NAV = [
 export default function Header() {
   return (
     <header className="w-full bg-white">
-      <div className="mx-auto flex max-w-495 flex-col items-center px-6 pb-10 pt-12 sm:pb-12 sm:pt-14">
+      <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center px-6 pb-10 pt-12 sm:pb-12 sm:pt-14">
         <div className="flex items-center justify-center gap-5 sm:gap-6">
           <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-[#b9ab93] sm:h-20 sm:w-20">
             <img
@@ -32,7 +32,7 @@ export default function Header() {
           </div>
         </div>
 
-        <nav className="mt-10 flex flex-wrap items-center justify-center gap-x-14 gap-y-4 font-luxury text-[13px] uppercase tracking-[0.28em] text-black sm:mt-12 sm:gap-x-20 sm:text-[14px] md:gap-x-24 md:text-[15px]">
+        <nav className="mt-10 flex w-full flex-wrap items-center justify-center gap-x-14 gap-y-4 font-luxury text-[13px] uppercase tracking-[0.28em] text-black sm:mt-12 sm:gap-x-20 sm:text-[14px] md:gap-x-24 md:text-[15px]">
           {NAV.map((item) => (
             <NavLink
               key={item.key}

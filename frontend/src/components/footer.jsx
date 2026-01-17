@@ -2,8 +2,8 @@ import logo from "../assets/rhc-logo.png";
 
 export default function Footer() {
   return (
-    <footer id="contact" className="w-full bg-[#b19e87dd] text-white">
-      <div className="mx-auto max-w-[495px] px-6 py-16 sm:py-20">
+    <footer id="contact" className="w-full bg-[#B19E87] text-white">
+      <div className="mx-auto max-w-495 px-6 py-16 sm:py-20">
         <div className="grid gap-14 lg:grid-cols-3 lg:items-start">
           <div>
             <h2 className="font-luxury text-[44px] leading-none tracking-[0.02em] sm:text-[54px]">

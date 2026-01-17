@@ -146,8 +146,9 @@ export default function InventoryPage() {
   }, [q, typeFilter, statusFilter]);
 
   return (
-    <section className="bg-[#f6eadb] px-6 py-14 sm:py-16">
-      <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-8 lg:flex-row lg:items-stretch">
+    <section className="px-6 py-14 sm:py-16">
+      <div className="mx-auto w-full max-w-[1200px] bg-[#f6eadb]">
+        <div className="flex w-full flex-col gap-8 lg:flex-row lg:items-stretch">
         <aside className="w-full bg-[#a39373] px-6 py-8 lg:w-[230px] lg:py-10">
           <div className="font-luxury text-[28px] uppercase tracking-[0.2em] text-black">
             Inventory
@@ -548,6 +549,7 @@ export default function InventoryPage() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </section>
   );
