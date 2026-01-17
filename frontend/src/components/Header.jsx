@@ -5,6 +5,8 @@ const NAV = [
   { key: "home", label: "HOME", to: "/home" },
   { key: "blog", label: "BLOG", to: "/blog" },
   { key: "services", label: "SERVICES", to: "/services" },
+  { key: "inventory", label: "INVENTORY", to: "/inventory" },
+  { key: "lumina", label: "LUMINA", to: "/lumina" },
 ];
 
 export default function Header() {

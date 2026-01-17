@@ -1,8 +1,16 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import Header from "./components/Header";
+import InventoryPage from "./components/inventoryPage";
 import ServicePage from "./components/servicePage";
 import Footer from "./components/footer";
 import NotFound from "./components/notFound";
+import LuminaPage from "./components/luminaPage";
+import ServiceDetailPage from "./components/serviceDetailPage";
+import BookingTimePage from "./components/bookingTimePage";
+import BookingFormPage from "./components/bookingFormPage";
+import PaymentMethodPage from "./components/paymentMethodPage";
+import TransactionCompletedPage from "./components/transactionCompletedPage";
+import ReceiptPage from "./components/receiptPage";
 
 export default function App() {
   return (
@@ -12,6 +20,14 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/services" replace />} />
           <Route path="/services" element={<ServicePage />} />
+          <Route path="/services/:serviceKey" element={<ServiceDetailPage />} />
+          <Route path="/booking-time" element={<BookingTimePage />} />
+          <Route path="/booking" element={<BookingFormPage />} />
+          <Route path="/payment" element={<PaymentMethodPage />} />
+          <Route path="/success" element={<TransactionCompletedPage />} />
+          <Route path="/receipt" element={<ReceiptPage />} />
+          <Route path="/inventory" element={<InventoryPage />} />
+          <Route path="/lumina" element={<LuminaPage />} />
           <Route path="/home" element={<NotFound label="Home" />} />
           <Route path="/blog" element={<NotFound label="Blog" />} />
           <Route path="*" element={<NotFound />} />

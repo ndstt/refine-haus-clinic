@@ -9,7 +9,7 @@ export default function NotFound({ label }) {
 
   return (
     <section className="bg-white px-6 py-24 sm:py-28">
-      <div className="mx-auto max-w-205 text-center">
+      <div className="mx-auto max-w-[205px] text-center">
         <div className="font-luxury text-[72px] leading-none tracking-[0.06em] text-black sm:text-[84px]">
           404
         </div>
