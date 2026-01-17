@@ -128,6 +128,7 @@ CREATE TABLE "item_catalog" (
   "unit_per_package" decimal(10,2),
   "tracking_mode" tracking_mode,
   "restock_threshlod" decimal(10,2)
+  "description" varchar
 );
 
 CREATE TABLE "stock_movement" (
@@ -143,6 +144,7 @@ CREATE TABLE "stock_movement" (
 
 CREATE TABLE "supplier" (
   "supplier_id" bigint PRIMARY KEY,
+  "description" varchar,
   "name" varchar,
   "phone" varchar(10),
   "address" varchar
@@ -159,8 +161,7 @@ CREATE TABLE "purchase_invoice_item" (
   "purchase_item_id" bigint,
   "purchase_invoice_id" bigint,
   "qty" int,
-  "purchase_price_per_unit" decimal(10,2),
-  "description" varchar,
+  "purchase_price_per_unit" decimal(10,2)
   PRIMARY KEY ("purchase_item_id", "purchase_invoice_id")
 );
 
@@ -169,7 +170,7 @@ CREATE TABLE "treatment_recipe" (
   "item_id" bigint,
   "qty_per_session" decimal(10,2),
   "sell_price" decimal(10,2),
-  "description" varchar,
+  "description" varchar
   PRIMARY KEY ("treatment_id", "item_id")
 );
 
