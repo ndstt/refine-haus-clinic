@@ -20,6 +20,7 @@ export default function ServicePage() {
                 title={service.title}
                 price={service.price}
                 image={service.image}
+                to={`/services/${service.key}`}
               />
             ))}
           </div>
