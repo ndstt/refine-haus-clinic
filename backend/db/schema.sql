@@ -169,6 +169,7 @@ CREATE TABLE "treatment_recipe" (
   "item_id" bigint,
   "qty_per_session" decimal(10,2),
   "sell_price" decimal(10,2),
+  "description" varchar,
   PRIMARY KEY ("treatment_id", "item_id")
 );
 
