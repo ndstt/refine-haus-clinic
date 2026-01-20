@@ -4,7 +4,7 @@ import InventoryPage from "./components/inventoryPage";
 import ServicePage from "./components/servicePage";
 import Footer from "./components/footer";
 import NotFound from "./components/notFound";
-import LuminaPage from "./components/luminaPage";
+import ChatPage from "./components/chatPage";
 import ServiceDetailPage from "./components/serviceDetailPage";
 import BookingTimePage from "./components/bookingTimePage";
 import BookingFormPage from "./components/bookingFormPage";
@@ -27,7 +27,7 @@ export default function App() {
           <Route path="/success" element={<TransactionCompletedPage />} />
           <Route path="/receipt" element={<ReceiptPage />} />
           <Route path="/inventory" element={<InventoryPage />} />
-          <Route path="/lumina" element={<LuminaPage />} />
+          <Route path="/lumina" element={<ChatPage />} />
           <Route path="/home" element={<NotFound label="Home" />} />
           <Route path="/blog" element={<NotFound label="Blog" />} />
           <Route path="*" element={<NotFound />} />
