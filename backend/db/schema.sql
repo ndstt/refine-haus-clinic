@@ -73,6 +73,26 @@ CREATE TYPE "invoice_promo_line_type" AS ENUM (
 );
 
 -- TABLES
+-- A chat session/conversation
+CREATE TABLE conversations (
+  id            UUID PRIMARY KEY,
+  user_id       UUID REFERENCES users(id),
+  title         TEXT,
+  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- One message per turn (user/system)
+CREATE TABLE messages (
+  id              UUID PRIMARY KEY,
+  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  role            TEXT NOT NULL CHECK (role IN ('user','assistant','system','tool')),
+  content         TEXT NOT NULL,
+  token_count     INT,
+  model           TEXT,
+  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE "sell_invoice_item" (
   "sell_item_id" bigint,
   "sell_invoice_id" bigint,
