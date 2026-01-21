@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12.9-slim-bookworm
 
 WORKDIR /app
 
@@ -12,7 +12,8 @@ COPY pyproject.toml uv.lock /app/
 RUN uv sync --frozen --no-dev
 RUN apt-get update \
  && apt-get upgrade -y \
- && apt-get clean
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
 
 COPY . /app
 
