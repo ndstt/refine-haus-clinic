@@ -721,3 +721,45 @@ AFTER INSERT
 ON "purchase_invoice_item"
 FOR EACH ROW
 EXECUTE FUNCTION create_stock_movement_from_purchase_item();
+
+CREATE OR REPLACE FUNCTION enforce_promotion_stackable()
+RETURNS trigger AS $$
+DECLARE
+  new_is_stackable boolean;
+  conflict_exists boolean;
+BEGIN
+  SELECT is_stackable
+  INTO new_is_stackable
+  FROM "promotion"
+  WHERE promotion_id = NEW.promotion_id;
+
+  IF new_is_stackable IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF new_is_stackable = false THEN
+    SELECT EXISTS (
+      SELECT 1
+      FROM "sell_invoice_promotion_line" sip
+      JOIN "promotion" p
+        ON p.promotion_id = sip.promotion_id
+      WHERE sip.sell_invoice_id = NEW.sell_invoice_id
+        AND p.is_stackable = false
+        AND sip.promotion_id <> NEW.promotion_id
+    )
+    INTO conflict_exists;
+
+    IF conflict_exists THEN
+      RAISE EXCEPTION 'Only one non-stackable promotion allowed per invoice';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_enforce_promotion_stackable
+BEFORE INSERT OR UPDATE
+ON "sell_invoice_promotion_line"
+FOR EACH ROW
+EXECUTE FUNCTION enforce_promotion_stackable();

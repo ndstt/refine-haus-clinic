@@ -48,7 +48,7 @@ This document summarizes what each table stores, what it does, and how the main 
 - promotion_condition_group: OR groups for promotion conditions.
 - promotion_condition_rule: AND rules inside a group (min spend, has item, qty thresholds).
 - promotion_redemption: When a promotion is used on a sale; links promotion, invoice, and customer.
-- sell_invoice_promotion_line: How a promotion affects a specific invoice or line item (discount, free item, wallet credit).
+- sell_invoice_promotion_line: How a promotion affects a specific invoice or line item (discount, free item, wallet credit). Trigger enforces only one non-stackable promotion per invoice.
 
 ## Relationships (high level)
 - customer 1..n sell_invoice, wallet_movement, promotion_redemption.
