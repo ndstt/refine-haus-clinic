@@ -9,7 +9,6 @@ This document summarizes what each table stores, what it does, and how the main 
 - tracking_mode: PER_SESSION, WITHDRAW.
 - unit_type: U, CC, PIECE.
 - stock_movement_type: OPENING_BALANCE, PURCHASE_IN, USE_FOR_PROMOTION, USE_FOR_TREATMENT, WASTE, ADJUST.
-- promotion_apply_mode: AUTO, COUPON.
 - promotion_benefit_type: PERCENT_DISCOUNT, AMOUNT_DISCOUNT, FREE_ITEM, WALLET_CREDIT.
 - promotion_target_scope: INVOICE_TOTAL, LINE_ITEM.
 - promotion_rule_type: MIN_SPEND, HAS_ITEM, MIN_QTY_ITEM, NEW_CUSTOMER_ONLY, MIN_WALLET_TOPUP.
@@ -28,9 +27,14 @@ This document summarizes what each table stores, what it does, and how the main 
 - wallet_movement: Wallet ledger per customer. Each row is a wallet change at `created_at`, and updates `member_wallet_remain`.
 
 ### Item catalog and stock
-- item_catalog: Master list of items that can be sold or consumed. Stores type, unit, tracking mode, price, and restock threshold. `sku` is auto-generated as `I0-000123-name-variant` (0=MEDICINE, 1=MEDICAL_TOOL).
+- item_group: Groups variants of the same item (same unit) for stock reporting. `group_code` is auto-generated (MED-000123 / TOOL-000123) and `current_qty` is auto-calculated from stock movements.
+- daily_stock: Daily snapshot of item_group stock totals (created by a scheduled job).
+- item_catalog: Master list of items that can be sold or consumed. Stores unit, tracking mode, price, and restock threshold. `sku` is auto-generated as `<item_group_id>-<item_id>-<variant>`.
 - stock_movement: Inventory ledger. Each movement records item, type, quantity, and optional links to sell or purchase invoices. Sales use negative qty, purchases use positive qty.
 - treatment_recipe: Items consumed per treatment (`treatment_id` + `item_id`) and their qty per session.
+ 
+Triggers keep `item_group.current_qty` in sync based on `stock_movement.qty * unit_per_package`.
+Daily job stores snapshots in `daily_stock` using movements up to the snapshot date (including OPENING_BALANCE).
 
 ### Procurement
 - supplier: Supplier profile and contact info. `supplier_code` is auto-generated as `S-000001`.
@@ -43,7 +47,7 @@ This document summarizes what each table stores, what it does, and how the main 
 - payment: Payment events for a sales invoice with method and amounts (customer paid, card fee, clinic amount). `receipt_no` is auto-generated as `<invoice_no>-<seq>`.
 
 ### Promotions
-- promotion: Promotion master (code, name, time window, priority, stackability).
+- promotion: Promotion master (code, name, time window, stackability).
 - promotion_benefit: Benefits linked to a promotion (discounts, free items, wallet credit).
 - promotion_condition_group: OR groups for promotion conditions.
 - promotion_condition_rule: AND rules inside a group (min spend, has item, qty thresholds).
@@ -51,6 +55,8 @@ This document summarizes what each table stores, what it does, and how the main 
 - sell_invoice_promotion_line: How a promotion affects a specific invoice or line item (discount, free item, wallet credit). Trigger enforces only one non-stackable promotion per invoice.
 
 ## Relationships (high level)
+- item_group 1..n item_catalog.
+- item_group 1..n daily_stock.
 - customer 1..n sell_invoice, wallet_movement, promotion_redemption.
 - sell_invoice 1..n sell_invoice_item, payment, sell_invoice_promotion_line.
 - item_catalog 1..n sell_invoice_item, stock_movement, treatment_recipe, promotion_benefit (target/free item).
@@ -63,9 +69,10 @@ This document summarizes what each table stores, what it does, and how the main 
 ## Entity creation flow (typical)
 
 ### 1) Setup data
-1. Create item catalog entries in `item_catalog`.
-2. Create suppliers in `supplier`.
-3. Define promotions in `promotion`, then add rules (`promotion_condition_group`, `promotion_condition_rule`) and benefits (`promotion_benefit`).
+1. Create item groups in `item_group`.
+2. Create item catalog entries in `item_catalog`.
+3. Create suppliers in `supplier`.
+4. Define promotions in `promotion`, then add rules (`promotion_condition_group`, `promotion_condition_rule`) and benefits (`promotion_benefit`).
 
 ### 2) Procurement and stock-in
 1. Create a `purchase_invoice` for a supplier.
