@@ -97,7 +97,7 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - amount: Positive for top-up, negative for spend.
 
 ## sell_invoice_item
-- sell_item_id: FK to item_catalog.
+- item_id: FK to item_catalog.
 - sell_invoice_id: FK to sell_invoice.
 - description: Line description.
 - qty: Quantity sold.
@@ -113,8 +113,9 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - clinic_amount: Net clinic amount.
 
 ## purchase_invoice_item
-- purchase_item_id: FK to purchase_invoice (schema uses this as a reference).
-- purchase_invoice_id: Purchase invoice id (as stored in schema).
+- purchase_invoice_item_id: Primary key.
+- purchase_invoice_id: FK to purchase_invoice.
+- item_id: FK to item_catalog.
 - qty: Quantity purchased.
 - purchase_price_per_unit: Unit purchase price.
 

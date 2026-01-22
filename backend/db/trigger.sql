@@ -391,7 +391,7 @@ EXECUTE FUNCTION sync_invoice_status_from_payment();
 CREATE OR REPLACE FUNCTION create_stock_movement_from_sell_item()
 RETURNS trigger AS $$
 BEGIN
-  IF NEW.sell_item_id IS NULL THEN
+  IF NEW.item_id IS NULL THEN
     RETURN NEW;
   END IF;
 
@@ -406,7 +406,7 @@ BEGIN
   )
   VALUES (
     now(),
-    NEW.sell_item_id,
+    NEW.item_id,
     'USE_FOR_TREATMENT',
     -NEW.qty,
     NEW.sell_invoice_id,
@@ -473,11 +473,10 @@ EXECUTE FUNCTION create_stock_movement_from_promo_line();
 CREATE OR REPLACE FUNCTION create_stock_movement_from_purchase_item()
 RETURNS trigger AS $$
 BEGIN
-  IF NEW.purchase_item_id IS NULL THEN
+  IF NEW.item_id IS NULL THEN
     RETURN NEW;
   END IF;
 
-  -- Assumes purchase_item_id stores item_catalog.item_id.
   INSERT INTO "stock_movement" (
     "created_at",
     "item_id",
@@ -489,7 +488,7 @@ BEGIN
   )
   VALUES (
     now(),
-    NEW.purchase_item_id,
+    NEW.item_id,
     'PURCHASE_IN',
     NEW.qty,
     NULL,
@@ -670,7 +669,7 @@ BEGIN
             SELECT 1
             FROM "sell_invoice_item"
             WHERE sell_invoice_id = p_sell_invoice_id
-              AND sell_item_id = rule_rec.item_id
+              AND item_id = rule_rec.item_id
           )
           INTO has_item;
           rule_ok := has_item;
@@ -684,7 +683,7 @@ BEGIN
           INTO item_qty
           FROM "sell_invoice_item"
           WHERE sell_invoice_id = p_sell_invoice_id
-            AND sell_item_id = rule_rec.item_id;
+            AND item_id = rule_rec.item_id;
           rule_ok := compare_numeric(item_qty, rule_rec.op, rule_rec.qty_base_unit);
         END IF;
 
@@ -774,6 +773,14 @@ DECLARE
   credit_amount decimal(10,2);
   free_item_id bigint;
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM "sell_invoice_item"
+    WHERE sell_invoice_id = NEW.sell_invoice_id
+  ) THEN
+    RAISE EXCEPTION 'Insert sell_invoice_item before promotion_redemption';
+  END IF;
+
   IF NOT promotion_rules_satisfied(NEW.promotion_id, NEW.sell_invoice_id, NEW.customer_id) THEN
     RAISE EXCEPTION 'Promotion rules not satisfied for promotion_id %', NEW.promotion_id;
   END IF;
@@ -795,7 +802,7 @@ BEGIN
       INTO target_total
       FROM "sell_invoice_item"
       WHERE sell_invoice_id = NEW.sell_invoice_id
-        AND sell_item_id = benefit.target_item_id;
+        AND item_id = benefit.target_item_id;
     END IF;
 
     IF benefit.benefit_type = 'PERCENT_DISCOUNT' THEN

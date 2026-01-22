@@ -105,4 +105,3 @@ Daily job stores snapshots in `daily_stock` using movements up to the snapshot d
 
 ## Notes and assumptions
 - `treatment_recipe.treatment_id` likely references a treatment/service table not defined here.
-- `purchase_invoice_item` does not include an `item_id` column in this schema; clarify whether `purchase_item_id` is the item reference or a separate line-item id.
