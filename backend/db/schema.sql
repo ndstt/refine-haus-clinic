@@ -1,4 +1,5 @@
-promotion_target_scope-- ENUM
+-- ENUM
+promotion_target_scope
 CREATE TYPE "item_type" AS ENUM (
   'MEDICINE',
   'MEDICAL_TOOL'
