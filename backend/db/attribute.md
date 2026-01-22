@@ -3,13 +3,13 @@
 This file explains the purpose of each column in every table. Source: `backend/db/schema.sql`.
 
 ## conversations
-- id: Primary key for the chat session.
+- conversation_id: Primary key for the chat session.
 - title: Optional title for the conversation.
 - created_at: When the conversation was created.
 - updated_at: When the conversation was last used (updated by message insert trigger).
 
 ## messages
-- id: Primary key for a message.
+- message_id: Primary key for a message.
 - conversation_id: FK to conversations; the chat this message belongs to.
 - role: USER or SYSTEM.
 - content: Message text.
@@ -34,10 +34,24 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - phone: Supplier phone.
 - address: Supplier address.
 
+## item_group
+- item_group_id: Primary key.
+- group_code: Human-friendly group code like MED-000123 or TOOL-000123 (auto-generated).
+- name: Group name (base item name).
+- item_type: MEDICINE or MEDICAL_TOOL.
+- unit: Group unit (U, CC, PIECE).
+- current_qty: Current stock quantity for the group (sum of movements * unit_per_package).
+- description: Group notes.
+
+## daily_stock
+- stock_date: Snapshot date.
+- item_group_id: FK to item_group.
+- qty: Total stock quantity for the group on that date.
+
 ## item_catalog
 - item_id: Primary key.
-- sku: Human-friendly item code like I0-000123-name-variant (auto-generated; 0=MEDICINE, 1=MEDICAL_TOOL).
-- item_type: MEDICINE or MEDICAL_TOOL.
+- item_group_id: FK to item_group (groups variants of the same item).
+- sku: Human-friendly item code like 000123-000456-variant (auto-generated).
 - name: Item name.
 - variant_name: Variant label (size, strength, etc.).
 - sell_price: Selling price per unit.
@@ -52,8 +66,6 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - code: Optional coupon code.
 - name: Promotion name.
 - description: Optional description.
-- apply_mode: AUTO or COUPON.
-- priority: Priority ordering (lower runs first if used).
 - is_stackable: Whether it can stack with others.
 - start_at: Start time (optional).
 - end_at: End time (optional).
