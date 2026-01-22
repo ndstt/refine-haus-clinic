@@ -223,6 +223,7 @@ CREATE TABLE "treatment_recipe" (
   "item_id" bigint REFERENCES "item_catalog" ("item_id") ON DELETE CASCADE,
   "qty_per_session" decimal(10,2),
   "sell_price" decimal(10,2),
+  "image_obj_key" varchar,
   "description" varchar,
   PRIMARY KEY ("treatment_id", "item_id")
 );
