@@ -1,4 +1,4 @@
--- ENUM
+promotion_target_scope-- ENUM
 CREATE TYPE "item_type" AS ENUM (
   'MEDICINE',
   'MEDICAL_TOOL'
@@ -16,18 +16,13 @@ CREATE TYPE "payment_method" AS ENUM (
   'MEMBER_WALLET'
 );
 
-CREATE TYPE "tracking_mode" AS ENUM (
-  'PER_SESSION',
-  'WITHDRAW'
-);
-
 CREATE TYPE "unit_type" AS ENUM (
   'U',
   'CC',
   'PIECE'
 );
 
-CREATE TYPE "stock_movement_type" AS ENUM (
+CREATE TYPE "" AS ENUM (
   'OPENING_BALANCE',
   'PURCHASE_IN',
   'USE_FOR_PROMOTION',
@@ -36,10 +31,6 @@ CREATE TYPE "stock_movement_type" AS ENUM (
   'ADJUST'
 );
 
-CREATE TYPE "promotion_apply_mode" AS ENUM (
-  'AUTO',
-  'COUPON'
-);
 
 CREATE TYPE "promotion_benefit_type" AS ENUM (
   'PERCENT_DISCOUNT',
@@ -117,10 +108,27 @@ CREATE TABLE "supplier" (
   "address" varchar
 );
 
+CREATE TABLE "item_group" (
+  "item_group_id" bigint PRIMARY KEY,
+  "group_code" varchar(50) UNIQUE,
+  "name" varchar,
+  "item_type" item_type,
+  "unit" unit_type,
+  "current_qty" decimal(12,2) DEFAULT 0,
+  "description" varchar
+);
+
+CREATE TABLE "daily_stock" (
+  "stock_date" date,
+  "item_group_id" bigint REFERENCES "item_group" ("item_group_id") ON DELETE CASCADE,
+  "qty" decimal(12,2) NOT NULL DEFAULT 0,
+  PRIMARY KEY ("stock_date", "item_group_id")
+);
+
 CREATE TABLE "item_catalog" (
   "item_id" bigint PRIMARY KEY,
+  "item_group_id" bigint REFERENCES "item_group" ("item_group_id") ON DELETE CASCADE,
   "sku" varchar(50) UNIQUE,
-  "item_type" item_type,
   "name" varchar,
   "variant_name" varchar,
   "sell_price" decimal(10,2),
@@ -136,8 +144,6 @@ CREATE TABLE "promotion" (
   "code" varchar(50) UNIQUE,
   "name" varchar,
   "description" varchar,
-  "apply_mode" promotion_apply_mode,
-  "priority" int DEFAULT 100,
   "is_stackable" boolean DEFAULT false,
   "start_at" timestamp,
   "end_at" timestamp,
@@ -146,12 +152,6 @@ CREATE TABLE "promotion" (
   "max_redemptions_per_customer" int,
   "created_at" timestamp DEFAULT (now())
 );
-
-COMMENT ON COLUMN "promotion"."code" IS 'nullable (coupon code)';
-COMMENT ON COLUMN "promotion"."description" IS 'nullable';
-COMMENT ON COLUMN "promotion"."end_at" IS 'nullable';
-COMMENT ON COLUMN "promotion"."max_redemptions_total" IS 'nullable';
-COMMENT ON COLUMN "promotion"."max_redemptions_per_customer" IS 'nullable';
 
 CREATE TABLE "purchase_invoice" (
   "purchase_invoice_id" bigint PRIMARY KEY,
@@ -240,19 +240,11 @@ CREATE TABLE "promotion_benefit" (
   "free_qty_base_unit" decimal(10,2)
 );
 
-COMMENT ON COLUMN "promotion_benefit"."target_item_id" IS 'nullable, FK -> item_catalog.item_id (for LINE_ITEM scope)';
-COMMENT ON COLUMN "promotion_benefit"."value_percent" IS 'nullable, for PERCENT_DISCOUNT';
-COMMENT ON COLUMN "promotion_benefit"."value_amount" IS 'nullable, for AMOUNT_DISCOUNT / WALLET_CREDIT';
-COMMENT ON COLUMN "promotion_benefit"."free_item_id" IS 'nullable, FK -> item_catalog.item_id (for FREE_ITEM)';
-COMMENT ON COLUMN "promotion_benefit"."free_qty_base_unit" IS 'nullable, base unit qty for FREE_ITEM';
-
 CREATE TABLE "promotion_condition_group" (
   "condition_group_id" bigint PRIMARY KEY,
   "promotion_id" bigint NOT NULL REFERENCES "promotion" ("promotion_id") ON DELETE CASCADE,
   "sort_order" int NOT NULL DEFAULT 1
 );
-
-COMMENT ON COLUMN "promotion_condition_group"."sort_order" IS 'OR groups ordered for evaluation/UI';
 
 CREATE TABLE "promotion_condition_rule" (
   "condition_rule_id" bigint PRIMARY KEY,
@@ -265,12 +257,6 @@ CREATE TABLE "promotion_condition_rule" (
   "text_value" varchar(100)
 );
 
-COMMENT ON TABLE "promotion_condition_rule" IS 'Rules inside same group = AND. Different groups = OR.';
-COMMENT ON COLUMN "promotion_condition_rule"."amount_value" IS 'Used by MIN_SPEND etc. nullable';
-COMMENT ON COLUMN "promotion_condition_rule"."item_id" IS 'FK -> item_catalog.item_id nullable';
-COMMENT ON COLUMN "promotion_condition_rule"."qty_base_unit" IS 'Used by MIN_QTY_ITEM nullable';
-COMMENT ON COLUMN "promotion_condition_rule"."text_value" IS 'Used by MEMBER_TIER_IN or similar nullable';
-
 CREATE TABLE "promotion_redemption" (
   "promotion_redemption_id" bigint PRIMARY KEY,
   "promotion_id" bigint NOT NULL REFERENCES "promotion" ("promotion_id") ON DELETE CASCADE,
@@ -281,10 +267,6 @@ CREATE TABLE "promotion_redemption" (
   "wallet_credit_total" decimal(10,2) DEFAULT 0,
   "redeemed_at" timestamp DEFAULT (now())
 );
-
-COMMENT ON COLUMN "promotion_redemption"."sell_invoice_id" IS 'FK -> sell_invoice.sell_invoice_id';
-COMMENT ON COLUMN "promotion_redemption"."customer_id" IS 'FK -> customer.customer_id';
-COMMENT ON COLUMN "promotion_redemption"."coupon_code_used" IS 'nullable';
 
 CREATE TABLE "sell_invoice_promotion_line" (
   "sell_invoice_promotion_line_id" bigint PRIMARY KEY,
@@ -303,464 +285,3 @@ CREATE TABLE "sell_invoice_promotion_line" (
   "description" varchar(255),
   "created_at" timestamp
 );
-
-COMMENT ON COLUMN "sell_invoice_promotion_line"."sell_invoice_item_id" IS 'nullable, FK -> sell_invoice_item.sell_invoice_item_id';
-COMMENT ON COLUMN "sell_invoice_promotion_line"."amount" IS 'Discount should be negative';
-COMMENT ON COLUMN "sell_invoice_promotion_line"."free_item_id" IS 'nullable, FK -> item_catalog.item_id';
-COMMENT ON COLUMN "sell_invoice_promotion_line"."free_qty_base_unit" IS 'nullable';
-COMMENT ON COLUMN "sell_invoice_promotion_line"."stock_movement_id" IS 'nullable, FK -> stock_movement.stock_movement_id';
-COMMENT ON COLUMN "sell_invoice_promotion_line"."wallet_credit_amount" IS 'nullable';
-COMMENT ON COLUMN "sell_invoice_promotion_line"."wallet_movement_id" IS 'nullable, FK -> wallet_movement.wallet_movement_id';
-COMMENT ON COLUMN "sell_invoice_promotion_line"."description" IS 'nullable';
-COMMENT ON COLUMN "sell_invoice_promotion_line"."created_at" IS 'default now()';
-
--- TRIGGERS & FUNCTIONS
-CREATE OR REPLACE FUNCTION normalize_code_part(input_text text)
-RETURNS text AS $$
-BEGIN
-  IF input_text IS NULL THEN
-    RETURN NULL;
-  END IF;
-
-  RETURN trim(both '-' from regexp_replace(lower(input_text), '[^a-z0-9]+', '-', 'g'));
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
-
-CREATE OR REPLACE FUNCTION set_customer_code()
-RETURNS trigger AS $$
-BEGIN
-  IF NEW.customer_code IS NULL OR NEW.customer_code = '' THEN
-    IF NEW.customer_id IS NULL THEN
-      RETURN NEW;
-    END IF;
-    NEW.customer_code := 'C-' || lpad(NEW.customer_id::text, 6, '0');
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_customer_code
-BEFORE INSERT OR UPDATE OF customer_id
-ON "customer"
-FOR EACH ROW
-EXECUTE FUNCTION set_customer_code();
-
-CREATE OR REPLACE FUNCTION set_supplier_code()
-RETURNS trigger AS $$
-BEGIN
-  IF NEW.supplier_code IS NULL OR NEW.supplier_code = '' THEN
-    IF NEW.supplier_id IS NULL THEN
-      RETURN NEW;
-    END IF;
-    NEW.supplier_code := 'S-' || lpad(NEW.supplier_id::text, 6, '0');
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_supplier_code
-BEFORE INSERT OR UPDATE OF supplier_id
-ON "supplier"
-FOR EACH ROW
-EXECUTE FUNCTION set_supplier_code();
-
-CREATE OR REPLACE FUNCTION set_item_code()
-RETURNS trigger AS $$
-DECLARE
-  base_code text;
-  name_part text;
-  max_name_len int;
-  type_digit text;
-BEGIN
-  IF NEW.item_id IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  type_digit := CASE NEW.item_type
-    WHEN 'MEDICINE' THEN '0'
-    WHEN 'MEDICAL_TOOL' THEN '1'
-    ELSE '9'
-  END;
-  base_code := 'I' || type_digit || '-' || lpad(NEW.item_id::text, 6, '0');
-  name_part := normalize_code_part(concat_ws('-', NEW.name, NEW.variant_name));
-  max_name_len := 50 - length(base_code) - 1;
-
-  IF name_part IS NULL OR name_part = '' OR max_name_len <= 0 THEN
-    NEW.sku := base_code;
-  ELSE
-    NEW.sku := base_code || '-' || left(name_part, max_name_len);
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_item_code
-BEFORE INSERT OR UPDATE OF item_id, name, variant_name
-ON "item_catalog"
-FOR EACH ROW
-EXECUTE FUNCTION set_item_code();
-
-CREATE OR REPLACE FUNCTION set_invoice_no()
-RETURNS trigger AS $$
-DECLARE
-  invoice_year text;
-BEGIN
-  IF NEW.invoice_no IS NULL OR NEW.invoice_no = '' THEN
-    IF NEW.sell_invoice_id IS NULL OR NEW.customer_id IS NULL THEN
-      RETURN NEW;
-    END IF;
-    invoice_year := to_char(COALESCE(NEW.issued_at, now()), 'YYYY');
-    NEW.invoice_no := 'INV-' || lpad(NEW.customer_id::text, 6, '0')
-      || '-' || invoice_year
-      || '-' || lpad(NEW.sell_invoice_id::text, 6, '0');
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_invoice_no
-BEFORE INSERT OR UPDATE OF sell_invoice_id, customer_id, issued_at
-ON "sell_invoice"
-FOR EACH ROW
-EXECUTE FUNCTION set_invoice_no();
-
-CREATE OR REPLACE FUNCTION set_receipt_no()
-RETURNS trigger AS $$
-DECLARE
-  base_invoice_no text;
-  seq_num int;
-BEGIN
-  IF NEW.receipt_no IS NULL OR NEW.receipt_no = '' THEN
-    IF NEW.sell_invoice_id IS NULL THEN
-      RETURN NEW;
-    END IF;
-
-    SELECT invoice_no
-    INTO base_invoice_no
-    FROM sell_invoice
-    WHERE sell_invoice_id = NEW.sell_invoice_id;
-
-    IF base_invoice_no IS NULL THEN
-      base_invoice_no := 'INV-' || lpad(NEW.sell_invoice_id::text, 6, '0');
-    END IF;
-
-    SELECT count(*) + 1
-    INTO seq_num
-    FROM payment
-    WHERE sell_invoice_id = NEW.sell_invoice_id;
-
-    NEW.receipt_no := base_invoice_no || '-' || lpad(seq_num::text, 2, '0');
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_receipt_no
-BEFORE INSERT
-ON "payment"
-FOR EACH ROW
-EXECUTE FUNCTION set_receipt_no();
-
-CREATE OR REPLACE FUNCTION touch_conversation_updated_at()
-RETURNS trigger AS $$
-BEGIN
-  UPDATE conversations
-  SET updated_at = now()
-  WHERE id = NEW.conversation_id;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_messages_touch_conversation
-AFTER INSERT
-ON messages
-FOR EACH ROW
-EXECUTE FUNCTION touch_conversation_updated_at();
-
-CREATE OR REPLACE FUNCTION refresh_customer_wallet_balance(target_customer_id bigint)
-RETURNS void AS $$
-BEGIN
-  UPDATE "customer"
-  SET member_wallet_remain = COALESCE((
-    SELECT SUM(amount)
-    FROM "wallet_movement"
-    WHERE customer_id = target_customer_id
-  ), 0)
-  WHERE customer_id = target_customer_id;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION sync_wallet_balance_from_movement()
-RETURNS trigger AS $$
-BEGIN
-  IF TG_OP = 'DELETE' THEN
-    PERFORM refresh_customer_wallet_balance(OLD.customer_id);
-    RETURN OLD;
-  END IF;
-
-  PERFORM refresh_customer_wallet_balance(NEW.customer_id);
-
-  IF TG_OP = 'UPDATE' AND OLD.customer_id IS DISTINCT FROM NEW.customer_id THEN
-    PERFORM refresh_customer_wallet_balance(OLD.customer_id);
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_wallet_movement_sync_balance
-AFTER INSERT OR UPDATE OR DELETE
-ON "wallet_movement"
-FOR EACH ROW
-EXECUTE FUNCTION sync_wallet_balance_from_movement();
-
-CREATE OR REPLACE FUNCTION refresh_sell_invoice_totals(target_invoice_id bigint)
-RETURNS void AS $$
-DECLARE
-  items_total decimal(10,2);
-  discount_total decimal(10,2);
-BEGIN
-  SELECT COALESCE(SUM(total_price), 0)
-  INTO items_total
-  FROM "sell_invoice_item"
-  WHERE sell_invoice_id = target_invoice_id;
-
-  SELECT COALESCE(SUM(amount), 0)
-  INTO discount_total
-  FROM "sell_invoice_promotion_line"
-  WHERE sell_invoice_id = target_invoice_id
-    AND line_type = 'DISCOUNT';
-
-  UPDATE "sell_invoice"
-  SET total_amount = items_total,
-      discount_amount = discount_total,
-      final_amount = items_total + discount_total
-  WHERE sell_invoice_id = target_invoice_id;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION sync_invoice_totals_from_sell_item()
-RETURNS trigger AS $$
-DECLARE
-  target_invoice_id bigint;
-BEGIN
-  target_invoice_id := COALESCE(NEW.sell_invoice_id, OLD.sell_invoice_id);
-  IF target_invoice_id IS NULL THEN
-    RETURN COALESCE(NEW, OLD);
-  END IF;
-
-  PERFORM refresh_sell_invoice_totals(target_invoice_id);
-
-  IF TG_OP = 'UPDATE' AND OLD.sell_invoice_id IS DISTINCT FROM NEW.sell_invoice_id THEN
-    PERFORM refresh_sell_invoice_totals(OLD.sell_invoice_id);
-  END IF;
-
-  RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_sell_invoice_item_totals
-AFTER INSERT OR UPDATE OR DELETE
-ON "sell_invoice_item"
-FOR EACH ROW
-EXECUTE FUNCTION sync_invoice_totals_from_sell_item();
-
-CREATE OR REPLACE FUNCTION sync_invoice_totals_from_promo_line()
-RETURNS trigger AS $$
-DECLARE
-  target_invoice_id bigint;
-BEGIN
-  target_invoice_id := COALESCE(NEW.sell_invoice_id, OLD.sell_invoice_id);
-  IF target_invoice_id IS NULL THEN
-    RETURN COALESCE(NEW, OLD);
-  END IF;
-
-  PERFORM refresh_sell_invoice_totals(target_invoice_id);
-
-  IF TG_OP = 'UPDATE' AND OLD.sell_invoice_id IS DISTINCT FROM NEW.sell_invoice_id THEN
-    PERFORM refresh_sell_invoice_totals(OLD.sell_invoice_id);
-  END IF;
-
-  RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_sell_invoice_promo_totals
-AFTER INSERT OR UPDATE OR DELETE
-ON "sell_invoice_promotion_line"
-FOR EACH ROW
-EXECUTE FUNCTION sync_invoice_totals_from_promo_line();
-
-CREATE OR REPLACE FUNCTION refresh_sell_invoice_status(target_invoice_id bigint)
-RETURNS void AS $$
-DECLARE
-  total_paid decimal(10,2);
-  amount_due decimal(10,2);
-BEGIN
-  SELECT COALESCE(SUM(amount_customer_paid), 0)
-  INTO total_paid
-  FROM "payment"
-  WHERE sell_invoice_id = target_invoice_id;
-
-  SELECT final_amount
-  INTO amount_due
-  FROM "sell_invoice"
-  WHERE sell_invoice_id = target_invoice_id;
-
-  UPDATE "sell_invoice"
-  SET status = CASE
-    WHEN amount_due IS NULL THEN status
-    WHEN total_paid <= 0 THEN 'UNPAID'
-    WHEN total_paid >= amount_due THEN 'PAID'
-    ELSE 'PARTIAL'
-  END
-  WHERE sell_invoice_id = target_invoice_id;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION sync_invoice_status_from_payment()
-RETURNS trigger AS $$
-DECLARE
-  target_invoice_id bigint;
-BEGIN
-  target_invoice_id := COALESCE(NEW.sell_invoice_id, OLD.sell_invoice_id);
-  IF target_invoice_id IS NULL THEN
-    RETURN COALESCE(NEW, OLD);
-  END IF;
-
-  PERFORM refresh_sell_invoice_status(target_invoice_id);
-
-  IF TG_OP = 'UPDATE' AND OLD.sell_invoice_id IS DISTINCT FROM NEW.sell_invoice_id THEN
-    PERFORM refresh_sell_invoice_status(OLD.sell_invoice_id);
-  END IF;
-
-  RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_payment_sync_invoice_status
-AFTER INSERT OR UPDATE OR DELETE
-ON "payment"
-FOR EACH ROW
-EXECUTE FUNCTION sync_invoice_status_from_payment();
-
-CREATE OR REPLACE FUNCTION create_stock_movement_from_sell_item()
-RETURNS trigger AS $$
-BEGIN
-  IF NEW.sell_item_id IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  INSERT INTO "stock_movement" (
-    "created_at",
-    "item_id",
-    "movement_type",
-    "qty",
-    "sell_invoice_id",
-    "purchase_invoice_id",
-    "expired_at"
-  )
-  VALUES (
-    now(),
-    NEW.sell_item_id,
-    'USE_FOR_TREATMENT',
-    -NEW.qty,
-    NEW.sell_invoice_id,
-    NULL,
-    NULL
-  );
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_sell_item_stock_movement
-AFTER INSERT
-ON "sell_invoice_item"
-FOR EACH ROW
-EXECUTE FUNCTION create_stock_movement_from_sell_item();
-
-CREATE OR REPLACE FUNCTION create_stock_movement_from_purchase_item()
-RETURNS trigger AS $$
-BEGIN
-  IF NEW.purchase_item_id IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  -- Assumes purchase_item_id stores item_catalog.item_id.
-  INSERT INTO "stock_movement" (
-    "created_at",
-    "item_id",
-    "movement_type",
-    "qty",
-    "sell_invoice_id",
-    "purchase_invoice_id",
-    "expired_at"
-  )
-  VALUES (
-    now(),
-    NEW.purchase_item_id,
-    'PURCHASE_IN',
-    NEW.qty,
-    NULL,
-    NEW.purchase_invoice_id,
-    NULL
-  );
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_purchase_item_stock_movement
-AFTER INSERT
-ON "purchase_invoice_item"
-FOR EACH ROW
-EXECUTE FUNCTION create_stock_movement_from_purchase_item();
-
-CREATE OR REPLACE FUNCTION enforce_promotion_stackable()
-RETURNS trigger AS $$
-DECLARE
-  new_is_stackable boolean;
-  conflict_exists boolean;
-BEGIN
-  SELECT is_stackable
-  INTO new_is_stackable
-  FROM "promotion"
-  WHERE promotion_id = NEW.promotion_id;
-
-  IF new_is_stackable IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  IF new_is_stackable = false THEN
-    SELECT EXISTS (
-      SELECT 1
-      FROM "sell_invoice_promotion_line" sip
-      JOIN "promotion" p
-        ON p.promotion_id = sip.promotion_id
-      WHERE sip.sell_invoice_id = NEW.sell_invoice_id
-        AND p.is_stackable = false
-        AND sip.promotion_id <> NEW.promotion_id
-    )
-    INTO conflict_exists;
-
-    IF conflict_exists THEN
-      RAISE EXCEPTION 'Only one non-stackable promotion allowed per invoice';
-    END IF;
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_enforce_promotion_stackable
-BEFORE INSERT OR UPDATE
-ON "sell_invoice_promotion_line"
-FOR EACH ROW
-EXECUTE FUNCTION enforce_promotion_stackable();
