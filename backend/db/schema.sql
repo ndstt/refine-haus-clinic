@@ -1,5 +1,4 @@
 -- ENUM
-promotion_target_scope
 CREATE TYPE "item_type" AS ENUM (
   'MEDICINE',
   'MEDICAL_TOOL'
@@ -23,7 +22,7 @@ CREATE TYPE "unit_type" AS ENUM (
   'PIECE'
 );
 
-CREATE TYPE "" AS ENUM (
+CREATE TYPE "stock_movement_type" AS ENUM (
   'OPENING_BALANCE',
   'PURCHASE_IN',
   'USE_FOR_PROMOTION',
