@@ -134,7 +134,6 @@ CREATE TABLE "item_catalog" (
   "sell_price" decimal(10,2),
   "unit" unit_type,
   "unit_per_package" decimal(10,2),
-  "tracking_mode" tracking_mode,
   "restock_threshlod" decimal(10,2),
   "description" varchar
 );
