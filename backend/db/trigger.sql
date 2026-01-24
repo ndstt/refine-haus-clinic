@@ -191,6 +191,48 @@ ON "payment"
 FOR EACH ROW
 EXECUTE FUNCTION set_receipt_no();
 
+-- PAYMENT FEES
+-- set_payment_card_fee: compute card_fee and clinic_amount for card payments.
+CREATE OR REPLACE FUNCTION set_payment_card_fee()
+RETURNS trigger AS $$
+DECLARE
+  card_fee_amount decimal(10,2);
+  invoice_total decimal(10,2);
+  invoice_discount decimal(10,2);
+  invoice_subtotal decimal(10,2);
+BEGIN
+  IF NEW.amount_customer_paid IS NULL THEN
+    NEW.card_fee := NULL;
+    NEW.clinic_amount := NULL;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.method = 'CARD' THEN
+    -- Card fee is 3% of invoice subtotal (total - discount).
+    SELECT total_amount, discount_amount
+    INTO invoice_total, invoice_discount
+    FROM "sell_invoice"
+    WHERE sell_invoice_id = NEW.sell_invoice_id;
+
+    invoice_subtotal := COALESCE(invoice_total, 0) - COALESCE(invoice_discount, 0);
+    card_fee_amount := round(invoice_subtotal * 0.03, 2);
+    NEW.card_fee := card_fee_amount;
+    NEW.clinic_amount := NEW.amount_customer_paid - card_fee_amount;
+  ELSE
+    NEW.card_fee := 0;
+    NEW.clinic_amount := NEW.amount_customer_paid;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_payment_card_fee
+BEFORE INSERT OR UPDATE OF method, amount_customer_paid
+ON "payment"
+FOR EACH ROW
+EXECUTE FUNCTION set_payment_card_fee();
+
 -- CHAT ACTIVITY
 -- touch_conversation_updated_at: refresh conversation updated_at when a new message arrives.
 CREATE OR REPLACE FUNCTION touch_conversation_updated_at()
@@ -257,21 +299,40 @@ RETURNS void AS $$
 DECLARE
   items_total decimal(10,2);
   discount_total decimal(10,2);
+  subtotal decimal(10,2);
+  card_fee decimal(10,2);
+  has_card_payment boolean;
 BEGIN
   SELECT COALESCE(SUM(total_price), 0)
   INTO items_total
   FROM "sell_invoice_item"
   WHERE sell_invoice_id = target_invoice_id;
 
-  SELECT COALESCE(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END), 0)
+  SELECT COALESCE(SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END), 0)
   INTO discount_total
   FROM "sell_invoice_promotion_line"
   WHERE sell_invoice_id = target_invoice_id;
 
+  subtotal := items_total - discount_total;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM "payment"
+    WHERE sell_invoice_id = target_invoice_id
+      AND method = 'CARD'
+  )
+  INTO has_card_payment;
+
+  IF has_card_payment THEN
+    card_fee := round(subtotal * 0.03, 2);
+  ELSE
+    card_fee := 0;
+  END IF;
+
   UPDATE "sell_invoice"
   SET total_amount = items_total,
       discount_amount = discount_total,
-      final_amount = items_total + discount_total
+      final_amount = subtotal + card_fee
   WHERE sell_invoice_id = target_invoice_id;
 END;
 $$ LANGUAGE plpgsql;
@@ -370,9 +431,11 @@ BEGIN
     RETURN COALESCE(NEW, OLD);
   END IF;
 
+  PERFORM refresh_sell_invoice_totals(target_invoice_id);
   PERFORM refresh_sell_invoice_status(target_invoice_id);
 
   IF TG_OP = 'UPDATE' AND OLD.sell_invoice_id IS DISTINCT FROM NEW.sell_invoice_id THEN
+    PERFORM refresh_sell_invoice_totals(OLD.sell_invoice_id);
     PERFORM refresh_sell_invoice_status(OLD.sell_invoice_id);
   END IF;
 

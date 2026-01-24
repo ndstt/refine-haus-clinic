@@ -86,8 +86,8 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - customer_id: FK to customer.
 - issue_at: Issued date/time.
 - total_amount: Sum of sell_invoice_item totals (trigger-updated).
-- discount_amount: Sum of discount lines (trigger-updated).
-- final_amount: total_amount + discount_amount (trigger-updated).
+- discount_amount: Total discount (positive value, trigger-updated).
+- final_amount: total_amount - discount_amount + card fee (trigger-updated when card payment exists).
 - status: UNPAID, PARTIAL, PAID.
 
 ## wallet_movement
@@ -108,8 +108,8 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - receipt_no: Human-friendly receipt number like <invoice_no>-<seq> (auto-generated).
 - method: CASH, CARD, MEMBER_WALLET.
 - amount_customer_paid: Amount paid by customer.
-- card_fee: Card fee (if card used).
-- clinic_amount: Net clinic amount.
+- card_fee: 3% fee based on invoice subtotal when CARD is used (0 otherwise).
+- clinic_amount: Net clinic amount after card fee (auto-calculated).
 
 ## purchase_invoice_item
 - purchase_invoice_id: FK to purchase_invoice.

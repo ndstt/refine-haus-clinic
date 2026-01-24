@@ -43,7 +43,7 @@ Daily job stores snapshots in `daily_stock` using movements up to the snapshot d
 - purchase_invoice_item: Line items for a purchase invoice with quantity and purchase price per unit; triggers create `stock_movement`.
 
 ### Sales and payment
-- sell_invoice: Sales invoice header for a customer with totals and status. `invoice_no` is auto-generated as `INV-<customer_id>-<YYYY>-<sell_invoice_id>`.
+- sell_invoice: Sales invoice header for a customer with totals and status. `invoice_no` is auto-generated as `INV-<customer_id>-<YYYY>-<sell_invoice_id>`. `final_amount` is computed as `total_amount - discount_amount + card fee` when a CARD payment exists.
 - sell_invoice_item: Line items on a sales invoice. Each line references an item and a qty/total price; triggers update totals and create stock movements.
 - payment: Payment events for a sales invoice with method and amounts (customer paid, card fee, clinic amount). `receipt_no` is auto-generated as `<invoice_no>-<seq>`.
 
@@ -93,6 +93,7 @@ Daily job stores snapshots in `daily_stock` using movements up to the snapshot d
    - Add `sell_invoice_promotion_line` rows for discounts/free items/wallet credits.
 4. Collect payment:
    - Insert `payment` rows for each payment event based on the amount due (typically `sell_invoice.final_amount`).
+   - If a CARD payment exists, card fee is 3% of `total_amount - discount_amount` and `final_amount` includes that fee.
    - Triggers update `sell_invoice.status` (PARTIAL or PAID).
 5. Reduce inventory:
    - Triggers create `stock_movement` rows with `movement_type = USE_FOR_TREATMENT` (negative qty) or other relevant types.
