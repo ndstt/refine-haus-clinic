@@ -57,7 +57,6 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - sell_price: Selling price per unit.
 - unit: U, CC, PIECE.
 - unit_per_package: Units per package (if applicable).
-- tracking_mode: PER_SESSION or WITHDRAW.
 - restock_threshlod: Restock threshold (typo kept as schema name).
 - description: Item notes.
 
@@ -113,7 +112,6 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - clinic_amount: Net clinic amount.
 
 ## purchase_invoice_item
-- purchase_invoice_item_id: Primary key.
 - purchase_invoice_id: FK to purchase_invoice.
 - item_id: FK to item_catalog.
 - qty: Quantity purchased.
@@ -133,7 +131,17 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - item_id: FK to item_catalog.
 - qty_per_session: Quantity used per session.
 - sell_price: Selling price per session.
+- image_obj_key: Image object storage key (optional).
 - description: Notes.
+
+## treatment_session
+- treatment_id: FK to treatment_recipe.
+- sell_invoice_id: FK to sell_invoice.
+- customer_id: FK to customer (optional; should match sell_invoice.customer_id if used).
+- session_date: Treatment session date.
+- age_at_session: Age at time of session (optional).
+- note: Session notes (optional).
+- next_appointment_date: Next appointment date (optional).
 
 ## promotion_benefit
 - promotion_benefit_id: Primary key.

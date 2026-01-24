@@ -209,7 +209,7 @@ CREATE TABLE "purchase_invoice_item" (
   "purchase_invoice_id" bigint REFERENCES "purchase_invoice" ("purchase_invoice_id") ON DELETE CASCADE,
   "item_id" bigint REFERENCES "item_catalog" ("item_id") ON DELETE CASCADE,
   "qty" int,
-  "purchase_price_per_unit" decimal(10,2)
+  "purchase_price_per_unit" decimal(10,2),
   PRIMARY KEY ("item_id", "purchase_invoice_id")
 );
 CREATE INDEX idx_purchase_invoice_item_purchase_invoice_id ON purchase_invoice_item (purchase_invoice_id);
