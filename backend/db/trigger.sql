@@ -136,7 +136,7 @@ BEGIN
     IF NEW.sell_invoice_id IS NULL OR NEW.customer_id IS NULL THEN
       RETURN NEW;
     END IF;
-    invoice_year := to_char(COALESCE(NEW.issued_at, now()), 'YYYY');
+    invoice_year := to_char(COALESCE(NEW.issue_at, now()), 'YYYY');
     NEW.invoice_no := 'INV-' || lpad(NEW.customer_id::text, 6, '0')
       || '-' || invoice_year
       || '-' || lpad(NEW.sell_invoice_id::text, 6, '0');
@@ -147,7 +147,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_invoice_no
-BEFORE INSERT OR UPDATE OF sell_invoice_id, customer_id, issued_at
+BEFORE INSERT OR UPDATE OF sell_invoice_id, customer_id, issue_at
 ON "sell_invoice"
 FOR EACH ROW
 EXECUTE FUNCTION set_invoice_no();
@@ -198,7 +198,7 @@ RETURNS trigger AS $$
 BEGIN
   UPDATE conversations
   SET updated_at = now()
-  WHERE id = NEW.conversation_id;
+  WHERE conversation_id = NEW.conversation_id;
 
   RETURN NEW;
 END;
