@@ -23,7 +23,7 @@ This document summarizes what each table stores, what it does, and how the main 
 - messages: Individual chat turns for a conversation. `role` is USER or SYSTEM, `content` is the text, and `token_count`/`model` are optional metadata. Deleting a conversation cascades to its messages.
 
 ### Customer and wallet
-- customer: Customer profile and wallet balance (`member_wallet_remain`). `customer_code` is auto-generated as `C-000001`.
+- customer: Customer profile and wallet balance (`member_wallet_remain`). `customer_code` is auto-generated as `C-000001`. Age should be derived at query time from `date_of_birth`.
 - wallet_movement: Wallet ledger per customer. Each row is a wallet change at `created_at`, and updates `member_wallet_remain`.
 
 ### Item catalog and stock
@@ -31,6 +31,7 @@ This document summarizes what each table stores, what it does, and how the main 
 - daily_stock: Daily snapshot of item_group stock totals (created by a scheduled job).
 - item_catalog: Master list of items that can be sold or consumed. Stores unit, tracking mode, price, and restock threshold. `sku` is auto-generated as `<item_group_id>-<item_id>-<variant>`.
 - stock_movement: Inventory ledger. Each movement records item, type, quantity, and optional links to sell or purchase invoices. Sales use negative qty, purchases use positive qty.
+- treatment: Treatment/service master list.
 - treatment_recipe: Items consumed per treatment (`treatment_id` + `item_id`) and their qty per session.
  
 Triggers keep `item_group.current_qty` in sync based on `stock_movement.qty * unit_per_package`.
@@ -72,7 +73,8 @@ Daily job stores snapshots in `daily_stock` using movements up to the snapshot d
 1. Create item groups in `item_group`.
 2. Create item catalog entries in `item_catalog`.
 3. Create suppliers in `supplier`.
-4. Define promotions in `promotion`, then add rules (`promotion_condition_group`, `promotion_condition_rule`) and benefits (`promotion_benefit`).
+4. Create treatments in `treatment` and define recipes in `treatment_recipe` (optional).
+5. Define promotions in `promotion`, then add rules (`promotion_condition_group`, `promotion_condition_rule`) and benefits (`promotion_benefit`).
 
 ### 2) Procurement and stock-in
 1. Create a `purchase_invoice` for a supplier.
@@ -96,7 +98,7 @@ Daily job stores snapshots in `daily_stock` using movements up to the snapshot d
    - Triggers create `stock_movement` rows with `movement_type = USE_FOR_TREATMENT` (negative qty) or other relevant types.
 
 ### 5) Treatment usage (if used)
-1. Define a `treatment_recipe` mapping treatments to required items and qty per session.
+1. Create a `treatment` and define a `treatment_recipe` mapping treatments to required items and qty per session.
 2. When a treatment session occurs, create `stock_movement` rows based on the recipe.
 
 ### 6) Chat feature (if enabled)
@@ -104,4 +106,4 @@ Daily job stores snapshots in `daily_stock` using movements up to the snapshot d
 2. Insert `messages` for each USER/SYSTEM turn; triggers update `conversations.updated_at`.
 
 ## Notes and assumptions
-- `treatment_recipe.treatment_id` likely references a treatment/service table not defined here.
+- Age is derived from `customer.date_of_birth` (no stored `age` field).

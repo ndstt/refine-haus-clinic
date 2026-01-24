@@ -23,7 +23,7 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - full_name: Customer full name.
 - nickname: Customer nickname.
 - phone: Phone number.
-- date_of_birth: Date of birth.
+- date_of_birth: Date of birth (age is derived at query time).
 - member_wallet_remain: Current wallet balance (synced from wallet_movement).
 
 ## supplier
@@ -77,14 +77,14 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - purchase_invoice_id: Primary key.
 - purchase_no: Human-friendly purchase number.
 - supplier_id: FK to supplier.
-- issue_date: Issued date/time.
+- issue_at: Issued date/time.
 - total_amount: Total amount for the purchase.
 
 ## sell_invoice
 - sell_invoice_id: Primary key.
 - invoice_no: Human-friendly invoice number like INV-000001-2025-000123 (auto-generated).
 - customer_id: FK to customer.
-- issued_at: Issued date/time.
+- issue_at: Issued date/time.
 - total_amount: Sum of sell_invoice_item totals (trigger-updated).
 - discount_amount: Sum of discount lines (trigger-updated).
 - final_amount: total_amount + discount_amount (trigger-updated).
@@ -126,8 +126,13 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - purchase_invoice_id: FK to purchase_invoice (optional).
 - expired_at: Expiration date (optional).
 
+## treatment
+- treatment_id: Primary key for a treatment/service.
+- name: Treatment name.
+- description: Notes about the treatment.
+
 ## treatment_recipe
-- treatment_id: Treatment/service id (not defined in schema).
+- treatment_id: FK to treatment.
 - item_id: FK to item_catalog.
 - qty_per_session: Quantity used per session.
 - sell_price: Selling price per session.
@@ -135,7 +140,7 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - description: Notes.
 
 ## treatment_session
-- treatment_id: FK to treatment_recipe.
+- treatment_id: FK to treatment.
 - sell_invoice_id: FK to sell_invoice.
 - customer_id: FK to customer (optional; should match sell_invoice.customer_id if used).
 - session_date: Treatment session date.
