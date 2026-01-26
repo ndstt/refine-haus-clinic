@@ -56,17 +56,17 @@ ON "supplier"
 FOR EACH ROW
 EXECUTE FUNCTION set_supplier_code();
 
--- set_item_group_code: auto-generate group_code using item_type and group name.
+-- set_item_group_code: auto-generate group_code using item_type, item_group_id, and first 4 letters of name.
 CREATE OR REPLACE FUNCTION set_item_group_code()
 RETURNS trigger AS $$
 DECLARE
   prefix text;
   slug text;
-  part text;
+  compact text;
   abbr text;
 BEGIN
   IF NEW.group_code IS NULL OR NEW.group_code = '' THEN
-    IF NEW.name IS NULL OR NEW.item_type IS NULL THEN
+    IF NEW.name IS NULL OR NEW.item_type IS NULL OR NEW.item_group_id IS NULL THEN
       RETURN NEW;
     END IF;
 
@@ -77,21 +77,14 @@ BEGIN
     END;
 
     slug := normalize_code_part(NEW.name);
-    abbr := '';
-
-    IF slug IS NOT NULL AND slug <> '' THEN
-      FOREACH part IN ARRAY string_to_array(slug, '-') LOOP
-        IF part IS NOT NULL AND part <> '' THEN
-          abbr := abbr || upper(substr(part, 1, 1));
-        END IF;
-      END LOOP;
-    END IF;
+    compact := replace(COALESCE(slug, ''), '-', '');
+    abbr := upper(left(compact, 4));
 
     IF abbr IS NULL OR abbr = '' THEN
-      abbr := upper(left(COALESCE(slug, ''), 6));
+      abbr := 'ITEM';
     END IF;
 
-    NEW.group_code := prefix || '-' || left(abbr, 8);
+    NEW.group_code := prefix || '-' || NEW.item_group_id::text || '-' || abbr;
   END IF;
 
   RETURN NEW;
