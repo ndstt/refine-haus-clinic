@@ -19,12 +19,13 @@ CREATE TYPE "payment_method" AS ENUM (
 CREATE TYPE "unit_type" AS ENUM (
   'U',
   'CC',
+  'MG',
   'PIECE'
 );
 
 CREATE TYPE "stock_movement_type" AS ENUM (
   'OPENING_BALANCE',
-  'PURCHASE_IN',
+  'IMPORT',
   'USE_FOR_PROMOTION',
   'USE_FOR_TREATMENT',
   'WASTE',
@@ -135,7 +136,7 @@ CREATE TABLE "item_catalog" (
   "sell_price" decimal(10,2),
   "unit" unit_type,
   "unit_per_package" decimal(10,2),
-  "restock_threshlod" decimal(10,2),
+  "restock_threshold" decimal(10,2) DEFAULT 0,
   "description" varchar
 );
 CREATE INDEX idx_item_catalog_item_group_id ON item_catalog (item_group_id);

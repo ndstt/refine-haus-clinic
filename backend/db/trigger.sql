@@ -56,14 +56,17 @@ ON "supplier"
 FOR EACH ROW
 EXECUTE FUNCTION set_supplier_code();
 
--- set_item_group_code: auto-generate group_code using item_type and item_group_id.
+-- set_item_group_code: auto-generate group_code using item_type and group name.
 CREATE OR REPLACE FUNCTION set_item_group_code()
 RETURNS trigger AS $$
 DECLARE
   prefix text;
+  slug text;
+  part text;
+  abbr text;
 BEGIN
   IF NEW.group_code IS NULL OR NEW.group_code = '' THEN
-    IF NEW.item_group_id IS NULL OR NEW.item_type IS NULL THEN
+    IF NEW.name IS NULL OR NEW.item_type IS NULL THEN
       RETURN NEW;
     END IF;
 
@@ -73,7 +76,22 @@ BEGIN
       ELSE 'ITEM'
     END;
 
-    NEW.group_code := prefix || '-' || lpad(NEW.item_group_id::text, 6, '0');
+    slug := normalize_code_part(NEW.name);
+    abbr := '';
+
+    IF slug IS NOT NULL AND slug <> '' THEN
+      FOREACH part IN ARRAY string_to_array(slug, '-') LOOP
+        IF part IS NOT NULL AND part <> '' THEN
+          abbr := abbr || upper(substr(part, 1, 1));
+        END IF;
+      END LOOP;
+    END IF;
+
+    IF abbr IS NULL OR abbr = '' THEN
+      abbr := upper(left(COALESCE(slug, ''), 6));
+    END IF;
+
+    NEW.group_code := prefix || '-' || left(abbr, 8);
   END IF;
 
   RETURN NEW;
@@ -81,18 +99,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_item_group_code
-BEFORE INSERT OR UPDATE OF item_group_id, item_type
+BEFORE INSERT OR UPDATE OF name, item_type
 ON "item_group"
 FOR EACH ROW
 EXECUTE FUNCTION set_item_group_code();
 
--- set_item_code: auto-generate sku using item_group_id, item_id, and variant.
+-- set_item_code: auto-generate sku using group_code, item_id, and variant.
 CREATE OR REPLACE FUNCTION set_item_code()
 RETURNS trigger AS $$
 DECLARE
   base_code text;
   name_part text;
-  max_name_len int;
 BEGIN
   IF NEW.item_id IS NULL THEN
     RETURN NEW;
@@ -102,18 +119,24 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  base_code := lpad(NEW.item_group_id::text, 6, '0')
-    || '-' || lpad(NEW.item_id::text, 6, '0');
+  SELECT group_code
+  INTO base_code
+  FROM "item_group"
+  WHERE item_group_id = NEW.item_group_id;
+
+  IF base_code IS NULL OR base_code = '' THEN
+    base_code := lpad(NEW.item_group_id::text, 6, '0');
+  END IF;
+
   name_part := normalize_code_part(NEW.variant_name);
   IF name_part IS NULL OR name_part = '' THEN
     name_part := normalize_code_part(NEW.name);
   END IF;
-  max_name_len := 50 - length(base_code) - 1;
 
-  IF name_part IS NULL OR name_part = '' OR max_name_len <= 0 THEN
-    NEW.sku := base_code;
+  IF name_part IS NULL OR name_part = '' THEN
+    NEW.sku := base_code || '-' || lpad(NEW.item_id::text, 6, '0');
   ELSE
-    NEW.sku := base_code || '-' || left(name_part, max_name_len);
+    NEW.sku := base_code || '-' || lpad(NEW.item_id::text, 6, '0') || '-' || name_part;
   END IF;
 
   RETURN NEW;
