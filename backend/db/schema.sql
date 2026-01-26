@@ -1,4 +1,9 @@
 -- ENUM
+CREATE TYPE "gender" AS ENUM (
+  'MALE',
+  'FEMALE'
+);
+
 CREATE TYPE "item_type" AS ENUM (
   'MEDICINE',
   'MEDICAL_TOOL'
@@ -98,6 +103,7 @@ CREATE TABLE "customer" (
   "nickname" varchar,
   "phone" varchar(10),
   "date_of_birth" date,
+  "gender" gender,
   "member_wallet_remain" decimal(10,2)
 );
 
