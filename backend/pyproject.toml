@@ -6,6 +6,8 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi[standard]",
   "langchain",
+  "asyncpg",
+  "python-dotenv",
 ]
 
 [build-system]
