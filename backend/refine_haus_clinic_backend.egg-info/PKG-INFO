@@ -5,5 +5,12 @@ Summary: Backend API for Refine Haus Clinic
 Requires-Python: <3.13,>=3.12
 Requires-Dist: fastapi[standard]
 Requires-Dist: langchain
+Requires-Dist: langchain-openai
+Requires-Dist: langchain-community
+Requires-Dist: langchain-postgres
 Requires-Dist: asyncpg
+Requires-Dist: psycopg2-binary
+Requires-Dist: pgvector
 Requires-Dist: python-dotenv
+Requires-Dist: openai>=1.0.0
+Requires-Dist: tiktoken

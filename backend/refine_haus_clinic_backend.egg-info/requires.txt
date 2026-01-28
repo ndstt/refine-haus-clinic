@@ -1,4 +1,11 @@
 fastapi[standard]
 langchain
+langchain-openai
+langchain-community
+langchain-postgres
 asyncpg
+psycopg2-binary
+pgvector
 python-dotenv
+openai>=1.0.0
+tiktoken
