@@ -6,8 +6,15 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi[standard]",
   "langchain",
+  "langchain-openai",
+  "langchain-community",
+  "langchain-postgres",
   "asyncpg",
+  "psycopg2-binary",
+  "pgvector",
   "python-dotenv",
+  "openai>=1.0.0",
+  "tiktoken",
 ]
 
 [build-system]

@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: refine-haus-clinic-backend
+Version: 0.1.0
+Summary: Backend API for Refine Haus Clinic
+Requires-Python: <3.13,>=3.12
+Requires-Dist: fastapi[standard]
+Requires-Dist: langchain
+Requires-Dist: asyncpg
+Requires-Dist: python-dotenv
