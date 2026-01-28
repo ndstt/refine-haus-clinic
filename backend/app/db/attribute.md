@@ -41,7 +41,7 @@ This file explains the purpose of each column in every table. Source: `backend/d
 
 ## item_catalog
 - item_id: Primary key.
-- sku: Human-friendly item code like MED-138-LIDO-000250-2-adrenaline (auto-generated).
+- sku: Human-friendly item code like MED-LIDOCAINE-2-adrenaline-000250 (auto-generated).
 - name: Item name.
 - variant_name: Variant label (size, strength, etc.).
 - item_type: MEDICINE or MEDICAL_TOOL.

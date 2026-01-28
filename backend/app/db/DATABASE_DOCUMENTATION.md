@@ -28,7 +28,7 @@ This document summarizes what each table stores, what it does, and how the main 
 
 ### Item catalog and stock
 - daily_stock: Daily snapshot of item stock totals (created by a scheduled job).
-- item_catalog: Master list of items that can be sold or consumed. Stores unit, price, and restock threshold. `sku` is auto-generated as `<type>-<item_name>-<item_id>-<variant>`.
+- item_catalog: Master list of items that can be sold or consumed. Stores unit, price, and restock threshold. `sku` is auto-generated as `<type>-<item_name>-<variant>-<item_id>`.
 - stock_movement: Inventory ledger. Each movement records item, type, quantity, and optional links to sell or purchase invoices. Sales use negative qty, purchases use positive qty.
 - treatment: Treatment/service master list.
 - treatment_recipe: Items consumed per treatment (`treatment_id` + `item_id`) and their qty per session.
