@@ -1,132 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 const SIDEBAR_ITEMS = [
   { key: "item-list", label: "Item List" },
   { key: "import-items", label: "Import" },
   { key: "withdraw-items", label: "Withdraw" },
-];
-
-const INVENTORY_ITEMS = [
-  {
-    code: "MED-NABU-100",
-    name: "Nabuto",
-    variant: "100u",
-    type: "Medicine",
-    quantity: 10,
-    status: "Ready",
-    price: 45,
-    unit: "u",
-  },
-  {
-    code: "MED-XEOM-50",
-    name: "Xeomin",
-    variant: "50u",
-    type: "Medicine",
-    quantity: 8,
-    status: "Low",
-    price: 55,
-    unit: "u",
-  },
-  {
-    code: "MED-DERM-50",
-    name: "Derma Glow",
-    variant: "50cc",
-    type: "Medicine",
-    quantity: 99,
-    status: "Ready",
-    price: 70,
-    unit: "cc",
-  },
-  {
-    code: "MED-NEUR-50",
-    name: "Neuramis",
-    variant: "50u",
-    type: "Medicine",
-    quantity: 50,
-    status: "Ready",
-    price: 48,
-    unit: "u",
-  },
-  {
-    code: "MED-REJU-50",
-    name: "Rejuran",
-    variant: "20u",
-    type: "Medicine",
-    quantity: 60,
-    status: "Low",
-    price: 32,
-    unit: "cc",
-  },
-  {
-    code: "TOOL-LASE-B",
-    name: "Laser Tip",
-    variant: "B",
-    type: "Tool",
-    quantity: 67,
-    status: "Ready",
-    price: 40,
-    unit: "piece",
-  },
-  {
-    code: "TOOL-SYRI-1",
-    name: "Syringe 1cc",
-    variant: "1cc",
-    type: "Tool",
-    quantity: 200,
-    status: "Ready",
-    price: 1200,
-    unit: "piece",
-  },
-  {
-    code: "TOOL-SYRI-2",
-    name: "Needle 30G",
-    variant: "2cc",
-    type: "Tool",
-    quantity: 800,
-    status: "Ready",
-    price: 12,
-    unit: "piece",
-  },
-  {
-    code: "TOOL-COTT-X",
-    name: "Cotton Ball",
-    variant: "X",
-    type: "Tool",
-    quantity: 632,
-    status: "Ready",
-    price: 8,
-    unit: "piece",
-  },
-  {
-    code: "TOOL-GAUZ-Z",
-    name: "Gauze",
-    variant: "Z",
-    type: "Tool",
-    quantity: 120,
-    status: "Low",
-    price: 120,
-    unit: "piece",
-  },
-  {
-    code: "TOOL-ALCO-88",
-    name: "Alcohol Pad",
-    variant: "88",
-    type: "Tool",
-    quantity: 500,
-    status: "Low",
-    price: 95,
-    unit: "piece",
-  },
-  {
-    code: "TOOL-TISS-A",
-    name: "Tissue",
-    variant: "A",
-    type: "Tool",
-    quantity: 412,
-    status: "Low",
-    price: 180,
-    unit: "piece",
-  },
 ];
 
 const STATUS_STYLES = {
@@ -231,24 +108,77 @@ export default function InventoryPage() {
     price: "",
     unit: "",
   });
+  const [appliedFilters, setAppliedFilters] = useState({
+    code: "",
+    name: "",
+    variant: "",
+    type: "All",
+    status: "All",
+    price: "",
+    unit: "",
+  });
 
-  const filteredItems = useMemo(() => {
-    return INVENTORY_ITEMS.filter((item) => {
-      const codeOk = filters.code.trim()
-        ? item.code.toLowerCase().includes(filters.code.trim().toLowerCase())
-        : true;
-      const nameOk = filters.name.trim()
-        ? item.name.toLowerCase().includes(filters.name.trim().toLowerCase())
-        : true;
-      const variantOk = filters.variant.trim()
-        ? item.variant.toLowerCase().includes(filters.variant.trim().toLowerCase())
-        : true;
-      const typeOk = filters.type === "All" ? true : item.type === filters.type;
-      const statusOk =
-        filters.status === "All" ? true : item.status === filters.status;
-      return codeOk && nameOk && variantOk && typeOk && statusOk;
+  const [items, setItems] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    if (activeTab !== "item-list") return;
+    const apiBase =
+      import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api/v1";
+    let isMounted = true;
+    setIsLoading(true);
+    setLoadError("");
+    const typeParam =
+      appliedFilters.type === "Medicine"
+        ? "MEDICINE"
+        : appliedFilters.type === "Tool"
+          ? "MEDICAL_TOOL"
+          : appliedFilters.type;
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: "15",
     });
-  }, [filters]);
+    if (appliedFilters.code) params.set("code", appliedFilters.code);
+    if (appliedFilters.name) params.set("name", appliedFilters.name);
+    if (appliedFilters.variant) params.set("variant", appliedFilters.variant);
+    if (typeParam && typeParam !== "All") params.set("item_type", typeParam);
+    if (appliedFilters.status && appliedFilters.status !== "All") {
+      params.set("status", appliedFilters.status);
+    }
+    if (appliedFilters.price) params.set("price", appliedFilters.price);
+    if (appliedFilters.unit) params.set("unit", appliedFilters.unit);
+    fetch(`${apiBase}/resource/item-catalog?${params.toString()}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Request failed (${res.status})`);
+        return res.json();
+      })
+      .then((data) => {
+        if (!isMounted) return;
+        setItems(Array.isArray(data.items) ? data.items : []);
+        setTotalItems(typeof data.total === "number" ? data.total : 0);
+        setTotalPages(
+          typeof data.total_pages === "number" ? data.total_pages : 1
+        );
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setItems([]);
+        setTotalItems(0);
+        setTotalPages(1);
+        setLoadError("Cannot load items. Check backend connection.");
+      })
+      .finally(() => {
+        if (!isMounted) return;
+        setIsLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab, page, appliedFilters]);
 
   return (
     <section className="bg-[#f6eadb] px-6 py-10">
@@ -446,7 +376,11 @@ export default function InventoryPage() {
                   <div className="ml-auto">
                     <button
                       type="button"
-                      className="inline-flex items-center justify-center rounded-full bg-[#f3e5d6] px-8 py-1.5 text-[12px] font-semibold text-black/80"
+                      onClick={() => {
+                        setAppliedFilters(filters);
+                        setPage(1);
+                      }}
+                      className="inline-flex items-center justify-center rounded-full bg-[#f3e5d6] px-8 py-1.5 text-[12px] font-semibold text-black/80 transition hover:bg-[#ead4c0]"
                     >
                       Search
                     </button>
@@ -457,10 +391,10 @@ export default function InventoryPage() {
               {/* Item list table */}
               <div className="mt-6 rounded-2xl border border-black/10 bg-white px-6 py-6 shadow-sm">
                 <div className="text-[13px] font-semibold text-black">
-                  Item List ({filteredItems.length})
+                  Item List ({totalItems})
                 </div>
 
-                <div className="mt-4 overflow-x-auto">
+                <div className="mt-4 max-h-[420px] overflow-y-auto overflow-x-auto">
                   <table className="w-full text-left text-[12px] text-black/80">
                     <thead>
                       <tr className="text-[11px] uppercase tracking-[0.12em] text-black/50">
@@ -475,13 +409,26 @@ export default function InventoryPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredItems.map((item) => (
-                        <tr key={item.code} className="border-t border-black/5">
-                          <td className="py-2 whitespace-nowrap">{item.code}</td>
-                          <td className="py-2 whitespace-nowrap">{item.name}</td>
-                          <td className="py-2 whitespace-nowrap">{item.variant}</td>
-                          <td className="py-2 whitespace-nowrap">{item.type}</td>
-                          <td className="py-2 whitespace-nowrap">{item.quantity}</td>
+                      {items.map((item) => (
+                        <tr
+                          key={item.item_id ?? item.sku ?? item.name}
+                          className="border-t border-black/5"
+                        >
+                          <td className="py-2 whitespace-nowrap">
+                            {item.sku ?? "-"}
+                          </td>
+                          <td className="py-2 whitespace-nowrap">
+                            {item.name ?? "-"}
+                          </td>
+                          <td className="py-2 whitespace-nowrap">
+                            {item.variant_name ?? "-"}
+                          </td>
+                          <td className="py-2 whitespace-nowrap">
+                            {item.item_type ?? "-"}
+                          </td>
+                          <td className="py-2 whitespace-nowrap">
+                            {item.current_qty ?? "-"}
+                          </td>
                           <td className="py-2">
                             <span
                               className={[
@@ -490,15 +437,69 @@ export default function InventoryPage() {
                                   "border-black/10 text-black/70",
                               ].join(" ")}
                             >
-                              {item.status}
+                              {item.status ?? "-"}
                             </span>
                           </td>
-                          <td className="py-2 whitespace-nowrap">{item.price}</td>
-                          <td className="py-2 whitespace-nowrap">{item.unit}</td>
+                          <td className="py-2 whitespace-nowrap">
+                            {item.sell_price ?? "-"}
+                          </td>
+                          <td className="py-2 whitespace-nowrap">
+                            {item.unit ?? "-"}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                </div>
+                {isLoading ? (
+                  <div className="mt-3 text-[12px] text-black/50">
+                    Loading...
+                  </div>
+                ) : null}
+                {loadError ? (
+                  <div className="mt-3 text-[12px] text-red-600">{loadError}</div>
+                ) : null}
+                <div className="mt-4 flex items-center justify-between text-[12px] text-black/60">
+                  <div>
+                    Page {page} / {totalPages}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="rounded-full border border-black/10 bg-black/5 px-3 py-1 text-[12px] transition hover:bg-black/15 disabled:opacity-50"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page <= 1}
+                    >
+                      Prev
+                    </button>
+                    {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(
+                      (pageNumber) => (
+                        <button
+                          key={pageNumber}
+                          type="button"
+                          className={[
+                            "rounded-full px-3 py-1 text-[12px] transition",
+                            pageNumber === page
+                              ? "bg-black/10 text-black"
+                              : "text-black/60 hover:bg-black/5",
+                          ].join(" ")}
+                          onClick={() => setPage(pageNumber)}
+                        >
+                          {pageNumber}
+                        </button>
+                      )
+                    )}
+                    <button
+                      type="button"
+                      className="rounded-full border border-black/10 bg-black/5 px-3 py-1 text-[12px] transition hover:bg-black/15 disabled:opacity-50"
+                      onClick={() =>
+                        setPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={page >= totalPages}
+                    >
+                      Next
+                    </button>
+                  </div>
                 </div>
               </div>
             </>
