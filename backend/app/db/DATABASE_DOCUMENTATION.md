@@ -27,14 +27,13 @@ This document summarizes what each table stores, what it does, and how the main 
 - wallet_movement: Wallet ledger per customer. Each row is a wallet change at `created_at`, and updates `member_wallet_remain`.
 
 ### Item catalog and stock
-- item_group: Groups variants of the same item (same unit) for stock reporting. `group_code` is auto-generated (MED-000123 / TOOL-000123) and `current_qty` is auto-calculated from stock movements.
-- daily_stock: Daily snapshot of item_group stock totals (created by a scheduled job).
-- item_catalog: Master list of items that can be sold or consumed. Stores unit, tracking mode, price, and restock threshold. `sku` is auto-generated as `<item_group_id>-<item_id>-<variant>`.
+- daily_stock: Daily snapshot of item stock totals (created by a scheduled job).
+- item_catalog: Master list of items that can be sold or consumed. Stores unit, price, and restock threshold. `sku` is auto-generated as `<type>-<item_name>-<item_id>-<variant>`.
 - stock_movement: Inventory ledger. Each movement records item, type, quantity, and optional links to sell or purchase invoices. Sales use negative qty, purchases use positive qty.
 - treatment: Treatment/service master list.
 - treatment_recipe: Items consumed per treatment (`treatment_id` + `item_id`) and their qty per session.
  
-Triggers keep `item_group.current_qty` in sync based on `stock_movement.qty * unit_per_package`.
+Triggers keep `item_catalog.current_qty` in sync based on `stock_movement.qty * unit_per_package`.
 Daily job stores snapshots in `daily_stock` using movements up to the snapshot date (including OPENING_BALANCE).
 
 ### Procurement
@@ -56,8 +55,7 @@ Daily job stores snapshots in `daily_stock` using movements up to the snapshot d
 - sell_invoice_promotion_line: How a promotion affects a specific invoice or line item (discount, free item, wallet credit). Trigger enforces only one non-stackable promotion per invoice.
 
 ## Relationships (high level)
-- item_group 1..n item_catalog.
-- item_group 1..n daily_stock.
+- item_catalog 1..n daily_stock.
 - customer 1..n sell_invoice, wallet_movement, promotion_redemption.
 - sell_invoice 1..n sell_invoice_item, payment, sell_invoice_promotion_line.
 - item_catalog 1..n sell_invoice_item, stock_movement, treatment_recipe, promotion_benefit (target/free item).
@@ -70,11 +68,10 @@ Daily job stores snapshots in `daily_stock` using movements up to the snapshot d
 ## Entity creation flow (typical)
 
 ### 1) Setup data
-1. Create item groups in `item_group`.
-2. Create item catalog entries in `item_catalog`.
-3. Create suppliers in `supplier`.
-4. Create treatments in `treatment` and define recipes in `treatment_recipe` (optional).
-5. Define promotions in `promotion`, then add rules (`promotion_condition_group`, `promotion_condition_rule`) and benefits (`promotion_benefit`).
+1. Create item catalog entries in `item_catalog`.
+2. Create suppliers in `supplier`.
+3. Create treatments in `treatment` and define recipes in `treatment_recipe` (optional).
+4. Define promotions in `promotion`, then add rules (`promotion_condition_group`, `promotion_condition_rule`) and benefits (`promotion_benefit`).
 
 ### 2) Procurement and stock-in
 1. Create a `purchase_invoice` for a supplier.
