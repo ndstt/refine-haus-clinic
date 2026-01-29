@@ -14,6 +14,12 @@ class ChatResponse(BaseModel):
     conversation_id: int
 
 
+class SqlChatResponse(BaseModel):
+    response: str
+    conversation_id: int
+    sql_query: Optional[str] = None
+
+
 class ConversationSummary(BaseModel):
     conversation_id: int
     title: Optional[str] = None
