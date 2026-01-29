@@ -107,6 +107,7 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - purchase_invoice_id: FK to purchase_invoice.
 - item_id: FK to item_catalog.
 - qty: Quantity purchased.
+- expire_date: Expiration date for the purchased lot (optional).
 - purchase_price_per_unit: Unit purchase price.
 
 ## stock_movement
@@ -116,7 +117,6 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - qty: Quantity moved (positive in, negative out).
 - sell_invoice_id: FK to sell_invoice (optional).
 - purchase_invoice_id: FK to purchase_invoice (optional).
-- expired_at: Expiration date (optional).
 
 ## treatment
 - treatment_id: Primary key for a treatment/service.

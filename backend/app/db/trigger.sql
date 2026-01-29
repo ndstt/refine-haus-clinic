@@ -437,8 +437,7 @@ BEGIN
     "movement_type",
     "qty",
     "sell_invoice_id",
-    "purchase_invoice_id",
-    "expired_at"
+    "purchase_invoice_id"
   )
   VALUES (
     now(),
@@ -446,7 +445,6 @@ BEGIN
     'USE_FOR_TREATMENT',
     -NEW.qty,
     NEW.sell_invoice_id,
-    NULL,
     NULL
   );
 
@@ -482,8 +480,7 @@ BEGIN
     "movement_type",
     "qty",
     "sell_invoice_id",
-    "purchase_invoice_id",
-    "expired_at"
+    "purchase_invoice_id"
   )
   VALUES (
     now(),
@@ -491,7 +488,6 @@ BEGIN
     'USE_FOR_PROMOTION',
     -NEW.free_qty_base_unit,
     NEW.sell_invoice_id,
-    NULL,
     NULL
   );
 
@@ -519,8 +515,7 @@ BEGIN
     "movement_type",
     "qty",
     "sell_invoice_id",
-    "purchase_invoice_id",
-    "expired_at"
+    "purchase_invoice_id"
   )
   VALUES (
     now(),
@@ -528,8 +523,7 @@ BEGIN
     'PURCHASE_IN',
     NEW.qty,
     NULL,
-    NEW.purchase_invoice_id,
-    NULL
+    NEW.purchase_invoice_id
   );
 
   RETURN NEW;
@@ -953,7 +947,7 @@ FOR EACH ROW
 EXECUTE FUNCTION apply_promotion_benefits_from_redemption();
 
 -- MAINTENANCE (expired stock)
--- waste_expired_stock: write WASTE movements for expired lots with remaining qty.
+-- waste_expired_stock: write WASTE movements for expired purchase lots.
 CREATE OR REPLACE FUNCTION waste_expired_stock()
 RETURNS void AS $$
 INSERT INTO stock_movement (
@@ -962,27 +956,25 @@ INSERT INTO stock_movement (
   movement_type,
   qty,
   sell_invoice_id,
-  purchase_invoice_id,
-  expired_at
+  purchase_invoice_id
 )
 SELECT
   now(),
-  item_id,
+  pii.item_id,
   'WASTE',
-  -remaining_qty,
+  -pii.qty,
   NULL,
-  NULL,
-  expired_at
-FROM (
-  SELECT
-    item_id,
-    expired_at,
-    SUM(qty) AS remaining_qty
-  FROM stock_movement
-  WHERE expired_at IS NOT NULL
-  GROUP BY item_id, expired_at
-  HAVING SUM(qty) > 0 AND expired_at < CURRENT_DATE
-) lots;
+  pii.purchase_invoice_id
+FROM "purchase_invoice_item" pii
+WHERE pii.expire_date IS NOT NULL
+  AND pii.expire_date < CURRENT_DATE
+  AND NOT EXISTS (
+    SELECT 1
+    FROM "stock_movement" sm
+    WHERE sm.item_id = pii.item_id
+      AND sm.purchase_invoice_id = pii.purchase_invoice_id
+      AND sm.movement_type = 'WASTE'
+  );
 $$ LANGUAGE sql;
 
 CREATE EXTENSION IF NOT EXISTS pg_cron;
