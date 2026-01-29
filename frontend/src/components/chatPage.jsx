@@ -1,102 +1,141 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 
-// Chat layout (UI only)
-// - Left sidebar: collapse/expand, new chat, search, recent chats
-// - Right: chat area (scrollable) + composer
-// - Empty state: centered hero prompt + ask box
-
-const RECENTS = [
-  "Revenue Report",
-  "Suggest promotion for ...",
-  "Restock Medicine",
-  "Example Chat 4",
-  "Example Chat 5",
-  "Example Chat 6",
-  "Example Chat 7",
-  "Example Chat 8",
-];
-
-const SAMPLE_CONVERSATION = [
-  {
-    role: "user",
-    text: "Show me revenue of this month",
-  },
-  {
-    role: "assistant",
-    text:
-      "Based on historical data and recent booking trends, the projected revenue for next month is $15,000 - $18,000, assuming a stable booking rate. Key factors affecting revenue:\n" +
-      "- If promotional campaigns (like the suggested 'Spring Glow-Up Package') perform well, we could see a 10-15% increase in total bookings.\n" +
-      "- External factors such as holidays and special events may drive a temporary surge in appointments.\n" +
-      "- Retention rate improvements from loyalty programs could add an additional $1,000 in recurring revenue.\n\n" +
-      "Recommendation: Monitor high-spending clients from the past 3 months and send personalized treatment offers via email or SMS to drive repeat visits.",
-  },
-  {
-    role: "user",
-    text: "What is top three service?",
-  },
-  {
-    role: "assistant",
-    text:
-      "Today's revenue stands at $3,200, generated from a total of 45 completed transactions. The top three services contributing to the revenue today are:\n\n" +
-      "Botox Treatment - 15 bookings ($1,500)\n" +
-      "PRP Therapy - 10 bookings ($800)\n" +
-      "Laser Resurfacing - 8 bookings ($600)\n\n" +
-      "The remaining transactions came from skincare product sales and consultation fees. Based on your revenue trends, today's earnings are 5% higher compared to the previous Monday. Keep an eye on peak booking hours between 2:00 PM - 5:00 PM.",
-  },
-];
-
-function cloneConversation() {
-  return SAMPLE_CONVERSATION.map((msg) => ({ ...msg }));
-}
+const API_BASE = "http://localhost:8000";
 
 export default function ChatPage() {
   const [collapsed, setCollapsed] = useState(false);
   const [search, setSearch] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [activeChat, setActiveChat] = useState(RECENTS[0]);
-  const [messagesByChat, setMessagesByChat] = useState(() =>
-    RECENTS.reduce((acc, name) => {
-      acc[name] = cloneConversation();
-      return acc;
-    }, {})
-  );
-  const [draftMessages, setDraftMessages] = useState([]);
+  
+  // activeChat เก็บ session_id (String) หรือ null
+  const [activeChat, setActiveChat] = useState(null);
+  
+  const [isLoading, setIsLoading] = useState(false);
+
+  // เก็บรายชื่อแชททั้งหมด (Sidebar)
+  // [ { id: "...", title: "..." }, ... ]
+  const [chatList, setChatList] = useState([]);
+
+  // เก็บข้อความของแชทปัจจุบัน
+  const [messages, setMessages] = useState([]);
+  
   const listRef = useRef(null);
+
+  // 1. โหลดรายชื่อแชทเข้า Sidebar ตอนเปิดเว็บ
+  useEffect(() => {
+    fetchChats();
+  }, []);
+
+  async function fetchChats() {
+    try {
+      const res = await fetch(`${API_BASE}/chats`);
+      const data = await res.json();
+      setChatList(data);
+    } catch (err) {
+      console.error("Failed to load chats", err);
+    }
+  }
+
+  // 2. เมื่อกดเลือกแชทเก่า (activeChat เปลี่ยน) ให้โหลดข้อความเก่า
+  useEffect(() => {
+    if (!activeChat) {
+        setMessages([]); // ถ้าเป็น New Chat ให้เคลียร์หน้าจอ
+        return;
+    }
+
+    async function fetchHistory() {
+        setIsLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/chats/${activeChat}`);
+            if(res.ok) {
+                const data = await res.json();
+                setMessages(data);
+            }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+            scrollToBottom();
+        }
+    }
+    fetchHistory();
+  }, [activeChat]);
 
   const filteredRecents = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return RECENTS;
-    return RECENTS.filter((x) => x.toLowerCase().includes(q));
-  }, [search]);
+    if (!q) return chatList;
+    return chatList.filter((x) => x.title.toLowerCase().includes(q));
+  }, [search, chatList]);
 
-  const messages = activeChat
-    ? messagesByChat[activeChat] || []
-    : draftMessages;
   const hasMessages = messages.length > 0;
 
-  function onSend() {
-    const text = prompt.trim();
-    if (!text) return;
-    if (activeChat) {
-      setMessagesByChat((prev) => ({
-        ...prev,
-        [activeChat]: [...(prev[activeChat] || []), { role: "user", text }],
-      }));
-    } else {
-      setDraftMessages((prev) => [...prev, { role: "user", text }]);
-    }
-    setPrompt("");
+  const scrollToBottom = () => {
     setTimeout(() => {
-      if (listRef.current) {
-        listRef.current.scrollTop = listRef.current.scrollHeight;
-      }
-    }, 0);
+        if (listRef.current) {
+          listRef.current.scrollTop = listRef.current.scrollHeight;
+        }
+    }, 50);
+  };
+
+  // ปุ่ม New Chat กดแล้วจะรีเซ็ตทุกอย่าง
+  const handleNewChat = () => {
+    setActiveChat(null);
+    setMessages([]);
+    setPrompt("");
+  };
+
+  async function onSend() {
+    const text = prompt.trim();
+    if (!text || isLoading) return;
+
+    // UI Optimistic Update (โชว์ข้อความเราก่อน)
+    const userMsg = { role: "user", text };
+    setMessages((prev) => [...prev, userMsg]);
+    
+    setPrompt("");
+    setIsLoading(true);
+    scrollToBottom();
+
+    try {
+        const payload = { 
+            message: text, 
+            session_id: activeChat // ถ้าเป็น null คือ New Chat
+        };
+
+        const response = await fetch(`${API_BASE}/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) throw new Error("API Failed");
+
+        const data = await response.json();
+        const aiMsg = { role: "assistant", text: data.answer };
+
+        // อัปเดตข้อความ AI
+        setMessages((prev) => [...prev, aiMsg]);
+
+        // ถ้าเป็นการเริ่มแชทครั้งแรก (New Chat)
+        if (!activeChat) {
+            setActiveChat(data.session_id); // set ID เพื่อให้คุยต่อได้
+            // อัปเดต Sidebar ทันทีโดยไม่ต้องรีเฟรช
+            setChatList(prev => [{ id: data.session_id, title: data.title }, ...prev]);
+        }
+
+    } catch (error) {
+        console.error("Error:", error);
+        setMessages(prev => [...prev, { role: "assistant", text: "Connection Error." }]);
+    } finally {
+        setIsLoading(false);
+        scrollToBottom();
+    }
   }
 
   return (
     <section className="bg-[#f6eadb]">
-      {/* IMPORTANT: remove outer padding so it looks like a full product page */}
       <div className="mx-auto flex w-full max-w-495">
+        
         {/* Sidebar */}
         <aside
           className={[
@@ -106,7 +145,6 @@ export default function ChatPage() {
           ].join(" ")}
         >
           <div className={collapsed ? "px-2 pt-6" : "px-6 pt-6"}>
-            {/* Center the toggle icon when collapsed (fix alignment) */}
             <div
               className={
                 collapsed
@@ -124,90 +162,46 @@ export default function ChatPage() {
                 type="button"
                 onClick={() => setCollapsed((v) => !v)}
                 className="grid h-9 w-9 place-items-center rounded-full text-black/50 hover:bg-black/5"
-                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
-                {/* collapse/expand icon */}
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <rect
-                    x="6.5"
-                    y="5.5"
-                    width="11"
-                    height="13"
-                    rx="2"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  />
-                  <path
-                    d="M10 8h4"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
+                  <rect x="6.5" y="5.5" width="11" height="13" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M10 8h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
               </button>
             </div>
 
-            {/* Actions */}
             {collapsed ? (
-              // Collapsed: stack icons and center them
               <div className="mt-6 flex flex-col items-center gap-2">
+                {/* New Chat Button (Collapsed) */}
                 <button
                   type="button"
                   className="grid h-11 w-11 place-items-center rounded-xl hover:bg-black/5"
-                  aria-label="New chat"
+                  onClick={handleNewChat} // ✅ ใช้ handleNewChat
                   title="New chat"
-                  onClick={() => {
-                    setActiveChat(null);
-                    setPrompt("");
-                  }}
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-black/55">
-                    <path
-                      d="M12 5v14M5 12h14"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                    />
+                    <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
                   </svg>
                 </button>
-
-                <button
-                  type="button"
-                  className="grid h-11 w-11 place-items-center rounded-xl hover:bg-black/5"
-                  aria-label="Search"
-                  title="Search"
-                >
+                {/* Search Icon */}
+                <button className="grid h-11 w-11 place-items-center rounded-xl hover:bg-black/5">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-black/55">
                     <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.6" />
-                    <path
-                      d="M20 20l-3.5-3.5"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                    />
+                    <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
                   </svg>
                 </button>
               </div>
             ) : (
-              // Expanded: icon + label aligned
               <div className="mt-6">
-                {/* New chat */}
+                {/* New Chat Button (Expanded) */}
                 <button
                   type="button"
                   className="w-full rounded-xl hover:bg-black/5 flex items-center gap-3 px-2 py-2"
-                  onClick={() => {
-                    setActiveChat(null);
-                    setPrompt("");
-                  }}
+                  onClick={handleNewChat} // ✅ ใช้ handleNewChat
                 >
                   <span className="grid h-10 w-10 place-items-center rounded-full text-black/55">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <path
-                        d="M12 5v14M5 12h14"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                      />
+                      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
                     </svg>
                   </span>
                   <span className="text-[15px] text-black/80">New chat</span>
@@ -219,15 +213,9 @@ export default function ChatPage() {
                     <span className="grid h-10 w-10 place-items-center rounded-full text-black/55">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-black/55">
                         <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.6" />
-                        <path
-                          d="M20 20l-3.5-3.5"
-                          stroke="currentColor"
-                          strokeWidth="1.6"
-                          strokeLinecap="round"
-                        />
+                        <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
                       </svg>
                     </span>
-
                     <div className="flex-1">
                       <div className="text-[15px] text-black/80">Search</div>
                       <input
@@ -243,24 +231,27 @@ export default function ChatPage() {
             )}
           </div>
 
-          {/* Recents */}
+          {/* Recents Sidebar List */}
           {!collapsed && (
             <div className="mt-6 px-6 pb-8">
               <div className="text-[13px] text-black/35">Recents</div>
-              <div className="mt-3 space-y-2">
-                {filteredRecents.map((name) => (
+              <div className="mt-3 space-y-2 max-h-[400px] overflow-y-auto">
+                {filteredRecents.length === 0 && (
+                   <div className="text-[12px] text-black/30 italic">No history yet</div>
+                )}
+                {filteredRecents.map((chat) => (
                   <button
-                    key={name}
+                    key={chat.id}
                     type="button"
-                    onClick={() => setActiveChat(name)}
+                    onClick={() => setActiveChat(chat.id)} // ✅ เปลี่ยน activeChat เป็น ID
                     className={[
-                      "w-full rounded-lg px-2 py-1.5 text-left text-[14px] transition",
-                      activeChat === name
+                      "w-full rounded-lg px-2 py-1.5 text-left text-[14px] transition truncate",
+                      activeChat === chat.id
                         ? "bg-black/5 text-black"
                         : "text-black/70 hover:bg-black/5",
                     ].join(" ")}
                   >
-                    {name}
+                    {chat.title}
                   </button>
                 ))}
               </div>
@@ -268,12 +259,13 @@ export default function ChatPage() {
           )}
         </aside>
 
-        {/* Main */}
+        {/* Main Chat Area */}
         <div className="flex-1">
           <div className="relative flex min-h-[720px] flex-col">
-            {/* Chat / empty state */}
+            
             <div ref={listRef} className="flex-1 overflow-y-auto px-6 py-10">
               {!hasMessages ? (
+                // State: New Chat
                 <div className="relative flex h-full min-h-[520px] items-center justify-center text-center">
                   <div className="relative w-full max-w-[760px]">
                     <div className="font-luxury text-[44px] leading-[1.05] tracking-[0.08em] text-black/80 sm:text-[56px]">
@@ -281,34 +273,28 @@ export default function ChatPage() {
                       <br />
                       AGENDA TODAY?
                     </div>
-
-                    {/* Ask box close to the title */}
                     <div className="mt-5">
+                      {/* Input Box ตรงกลาง */}
                       <div className="flex items-center gap-3 rounded-full border border-black/10 bg-white px-5 py-3 shadow-sm">
                         <input
                           value={prompt}
                           onChange={(e) => setPrompt(e.target.value)}
+                          disabled={isLoading}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") onSend();
+                             if (e.key === "Enter") onSend();
                           }}
                           className="w-full bg-transparent text-[14px] text-black/70 placeholder:text-black/35 focus:outline-none"
-                          placeholder="Ask here..."
+                          placeholder={isLoading ? "Starting chat..." : "Ask here..."}
                         />
-                        <button
+                         <button
                           type="button"
                           onClick={onSend}
+                          disabled={isLoading}
                           className="grid h-9 w-9 place-items-center rounded-full text-black/60 hover:bg-black/5"
-                          aria-label="Send"
                         >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                            <path d="M5 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                            <path
-                              d="M13 6l6 6-6 6"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
+                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="M5 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                            <path d="M13 6l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         </button>
                       </div>
@@ -316,6 +302,7 @@ export default function ChatPage() {
                   </div>
                 </div>
               ) : (
+                // State: Chat History
                 <div className="mx-auto w-full max-w-[760px] space-y-6">
                   {messages.map((m, idx) => (
                     <div
@@ -329,11 +316,16 @@ export default function ChatPage() {
                       <span className="whitespace-pre-line">{m.text}</span>
                     </div>
                   ))}
+                   {isLoading && (
+                    <div className="mr-auto w-fit max-w-[85%] text-[13px] leading-relaxed text-black/40 animate-pulse">
+                      Processing...
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Composer (bottom) - show only when there are messages */}
+            {/* Composer (Bottom) */}
             {hasMessages && (
               <div className="border-t border-black/10 bg-[#f6eadb] px-6 py-6">
                 <div className="mx-auto w-full max-w-[760px]">
@@ -341,6 +333,7 @@ export default function ChatPage() {
                     <input
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
+                      disabled={isLoading}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") onSend();
                       }}
@@ -350,24 +343,19 @@ export default function ChatPage() {
                     <button
                       type="button"
                       onClick={onSend}
+                      disabled={isLoading}
                       className="grid h-9 w-9 place-items-center rounded-full text-black/60 hover:bg-black/5"
-                      aria-label="Send"
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                        <path d="M5 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                        <path
-                          d="M13 6l6 6-6 6"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
+                        <path d="M5 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        <path d="M13 6l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </button>
                   </div>
                 </div>
               </div>
             )}
+
           </div>
         </div>
       </div>

@@ -14,3 +14,4 @@ Requires-Dist: pgvector
 Requires-Dist: python-dotenv
 Requires-Dist: openai>=1.0.0
 Requires-Dist: tiktoken
+Requires-Dist: supabase

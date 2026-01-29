@@ -12,8 +12,9 @@ Features:
 
 import os
 import logging
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
+import uuid
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -22,7 +23,10 @@ from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-# LangChain imports
+# --- Supabase Imports (ส่วนที่เพิ่มมา) ---
+from supabase import create_client, Client
+
+# --- LangChain Imports (ส่วนเดิม) ---
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits import create_sql_agent
@@ -38,13 +42,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # =============================================================================
-# CONFIGURATION
+# ⚙️ CONFIGURATION
 # =============================================================================
 
-# Database Configuration (Supabase PostgreSQL)
+# 1. Database for AI to Query (PostgreSQL)
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    # Build from individual components if DATABASE_URL not provided
     DB_USER = os.getenv("DB_USER", "postgres")
     DB_PASSWORD = os.getenv("DB_PASSWORD", "")
     DB_HOST = os.getenv("DB_HOST", "localhost")
@@ -52,13 +55,22 @@ if not DATABASE_URL:
     DB_NAME = os.getenv("DB_NAME", "postgres")
     DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-# OpenAI Configuration
+# 2. OpenAI Key
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise ValueError("OPENAI_API_KEY environment variable is required")
+
+# 3. Supabase Config (สำหรับเก็บ History) - ใส่ของตัวเองตรงนี้
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://maexprgkgpfveepayfug.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "sb_publishable_XxoMC1ciyCp7_qq6XVkJ9Q_1I4cOTlP")
+
+# Initialize Supabase Client
+try:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception as e:
+    logger.error(f"Error connecting to Supabase: {e}")
+    supabase = None
 
 # =============================================================================
-# SYSTEM PROMPT (Thai Business Intelligence Assistant)
+# SYSTEM PROMPT (ส่วนเดิม ไม่แก้ไข)
 # =============================================================================
 
 SYSTEM_PROMPT = """คุณคือ "LUMINA" ผู้ช่วย AI สำหรับ Refine Haus Clinic คลินิกความงามระดับพรีเมียม
@@ -129,173 +141,118 @@ LIMIT 10
 """
 
 # =============================================================================
-# PYDANTIC MODELS
+# PYDANTIC MODELS (รวมร่าง)
 # =============================================================================
 
 class ChatRequest(BaseModel):
-    """Request body for chat endpoint."""
     message: str
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "message": "ยอดขายวันนี้เท่าไหร่"
-            }
-        }
-
+    session_id: Optional[str] = None # รองรับการส่ง Session ID มาเพื่อคุยต่อ
 
 class ChatResponse(BaseModel):
-    """Response body for chat endpoint."""
     answer: str
     query: Optional[str] = None
     timestamp: str
+    session_id: str  # เพิ่มกลับมาเพื่อบอก Frontend
+    title: str       # เพิ่มกลับมาเพื่อ update sidebar
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "answer": "ยอดขายวันนี้อยู่ที่ ฿45,800.00",
-                "query": "SELECT SUM(final_amount) FROM sell_invoice WHERE issue_at::date = CURRENT_DATE",
-                "timestamp": "2025-01-29T10:30:00"
-            }
-        }
+class Message(BaseModel):
+    role: str
+    text: str
 
+class SessionSummary(BaseModel):
+    id: str
+    title: str
 
 # =============================================================================
-# LANGCHAIN SQL AGENT SETUP
+# LANGCHAIN AGENT SETUP (ส่วนเดิม ไม่แก้ไข)
 # =============================================================================
 
 def create_sql_agent_executor():
-    """
-    Create LangChain SQL Agent with GPT-4o.
-
-    This agent can:
-    - Query the database directly
-    - Understand natural language (Thai)
-    - Generate and execute SQL
-    - Return human-readable answers
-    """
     logger.info("Initializing LangChain SQL Agent...")
+    if not OPENAI_API_KEY:
+        raise ValueError("OPENAI_API_KEY is required")
 
-    # 1. Create LLM instance (GPT-4o with temperature=0 for accuracy)
-    llm = ChatOpenAI(
-        model="gpt-4o",
-        temperature=0,  # Strict mode - no creativity for numbers
-        openai_api_key=OPENAI_API_KEY
-    )
-
-    # 2. Connect to Supabase PostgreSQL
-    # Note: Using connect_args to handle Supabase connection properly
+    llm = ChatOpenAI(model="gpt-4o", temperature=0, openai_api_key=OPENAI_API_KEY)
+    
     db = SQLDatabase.from_uri(
         DATABASE_URL,
-        include_tables=[
-            "customer",
-            "item_catalog",
-            "sell_invoice",
-            "sell_invoice_item",
-            "treatment"
-        ],
-        sample_rows_in_table_info=3  # Include sample data for better context
+        include_tables=["customer", "item_catalog", "sell_invoice", "sell_invoice_item", "treatment"],
+        sample_rows_in_table_info=3
     )
 
-    logger.info(f"Connected to database. Tables: {db.get_usable_table_names()}")
-
-    # 3. Create SQL Agent with custom prompt
-    agent_executor = create_sql_agent(
+    return create_sql_agent(
         llm=llm,
         db=db,
-        verbose=True,  # Log SQL queries for debugging
+        verbose=True,
         prefix=SYSTEM_PROMPT,
         agent_executor_kwargs={
             "handle_parsing_errors": True,
-            "return_intermediate_steps": True  # Return SQL query used
+            "return_intermediate_steps": True
         }
     )
 
-    logger.info("✅ SQL Agent initialized successfully")
-    return agent_executor
-
-
-# Global agent instance (initialized on startup)
 sql_agent = None
 
-
 # =============================================================================
-# FASTAPI APPLICATION
+# FASTAPI APP
 # =============================================================================
 
 def create_app() -> FastAPI:
-    """Create and configure FastAPI application."""
-
-    app = FastAPI(
-        title="Refine Haus Clinic - AI Chatbot API",
-        description="Business Intelligence Assistant for Beauty Clinic (Thai Language)",
-        version="1.0.0",
-        docs_url="/docs",
-        redoc_url="/redoc"
-    )
-
-    # GZip compression for responses
+    app = FastAPI(title="Refine Haus Clinic AI")
     app.add_middleware(GZipMiddleware, minimum_size=1000)
-
-    # CORS - Allow all origins for development
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Allow all origins
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
-    # Startup event - Initialize SQL Agent
     @app.on_event("startup")
     async def startup():
         global sql_agent
         try:
             sql_agent = create_sql_agent_executor()
-            logger.info("🚀 Application started successfully")
+            logger.info("🚀 AI Agent Ready")
         except Exception as e:
-            logger.error(f"❌ Failed to initialize SQL Agent: {e}")
-            raise
+            logger.error(f"❌ Agent Init Failed: {e}")
 
-    # Health check endpoint
-    @app.get("/health")
-    async def health_check():
-        """Check if the API is running."""
-        return {
-            "status": "healthy",
-            "timestamp": datetime.now().isoformat(),
-            "agent_ready": sql_agent is not None
-        }
+    # ---------------------------------------------------------
+    # 🆕 ENDPOINT: ดึงรายชื่อแชท (Supabase)
+    # ---------------------------------------------------------
+    @app.get("/chats", response_model=List[SessionSummary])
+    async def get_chats():
+        if not supabase: return []
+        response = supabase.table("chats").select("id, title").order("created_at", desc=True).execute()
+        return response.data
 
-    # Main chat endpoint
+    # ---------------------------------------------------------
+    # 🆕 ENDPOINT: ดึงประวัติข้อความ (Supabase)
+    # ---------------------------------------------------------
+    @app.get("/chats/{session_id}", response_model=List[Message])
+    async def get_chat_history(session_id: str):
+        if not supabase: return []
+        response = supabase.table("messages").select("role, text").eq("chat_id", session_id).order("created_at", desc=False).execute()
+        if not response.data and response.data != []:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        return response.data
+
+    # ---------------------------------------------------------
+    # 🔥 MAIN CHAT ENDPOINT (รวมร่าง AI + Supabase)
+    # ---------------------------------------------------------
     @app.post("/chat", response_model=ChatResponse)
     async def chat(request: ChatRequest):
-        """
-        Chat with the AI Business Intelligence Assistant.
-
-        Send a message in Thai and receive insights about:
-        - Sales (ยอดขาย)
-        - Stock/Inventory (สต็อก)
-        - Treatments (ทรีตเมนต์)
-        - Best sellers (สินค้าขายดี)
-        - Customers (ลูกค้า)
-        """
         if sql_agent is None:
-            raise HTTPException(
-                status_code=503,
-                detail="AI Agent is not ready. Please try again later."
-            )
+            raise HTTPException(status_code=503, detail="AI Agent not ready")
 
+        # 1. AI PROCESSING (ส่วนเดิมของคุณ)
+        # -----------------------------------------------------
         try:
-            logger.info(f"📩 Received message: {request.message}")
-
-            # Execute the agent
+            # เรียก Agent ให้คิดคำตอบ
             result = sql_agent.invoke({"input": request.message})
-
-            # Extract the answer
             answer = result.get("output", "ขออภัย ไม่สามารถตอบคำถามได้")
-
-            # Extract SQL query from intermediate steps (if available)
+            
+            # ดึง SQL Query ออกมา (ถ้ามี)
             sql_query = None
             intermediate_steps = result.get("intermediate_steps", [])
             for step in intermediate_steps:
@@ -308,59 +265,52 @@ def create_app() -> FastAPI:
                         elif isinstance(tool_input, str) and 'SELECT' in tool_input.upper():
                             sql_query = tool_input
 
-            logger.info(f"✅ Response generated successfully")
-
-            return ChatResponse(
-                answer=answer,
-                query=sql_query,
-                timestamp=datetime.now().isoformat()
-            )
-
         except Exception as e:
-            logger.error(f"❌ Error processing message: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error processing your request: {str(e)}"
-            )
+            logger.error(f"AI Error: {e}")
+            answer = "เกิดข้อผิดพลาดในการประมวลผล"
+            sql_query = None
 
-    # API info endpoint
-    @app.get("/")
-    async def root():
-        """API information."""
-        return {
-            "name": "Refine Haus Clinic AI Chatbot",
-            "version": "1.0.0",
-            "description": "Business Intelligence Assistant (Thai Language)",
-            "endpoints": {
-                "POST /chat": "Send a message to the AI",
-                "GET /health": "Health check",
-                "GET /docs": "Swagger UI documentation"
-            },
-            "example_questions": [
-                "ยอดขายวันนี้เท่าไหร่",
-                "สินค้าไหนขายดีที่สุด",
-                "สต็อกสินค้าตัวไหนใกล้หมด",
-                "มีทรีตเมนต์อะไรบ้าง",
-                "รายได้เดือนนี้เท่าไหร่"
-            ]
-        }
+        # 2. SUPABASE SAVING (ส่วนที่เพิ่มเข้าไป)
+        # -----------------------------------------------------
+        session_id = request.session_id
+        title = ""
+
+        if supabase:
+            try:
+                # กรณี New Chat: สร้าง Session ใหม่
+                if not session_id:
+                    title = request.message[:30] + "..." if len(request.message) > 30 else request.message
+                    res_chat = supabase.table("chats").insert({"title": title}).execute()
+                    session_id = res_chat.data[0]['id']
+                else:
+                    # กรณี Chat เดิม: (Optional) อาจจะดึง title เก่ามาคืนค่าถ้าต้องการ
+                    pass
+
+                # บันทึกบทสนทนา (User + AI)
+                messages_to_insert = [
+                    {"chat_id": session_id, "role": "user", "text": request.message},
+                    {"chat_id": session_id, "role": "assistant", "text": answer}
+                ]
+                supabase.table("messages").insert(messages_to_insert).execute()
+                
+            except Exception as e:
+                logger.error(f"Supabase Save Error: {e}")
+                # ถ้าบันทึกไม่ได้ ก็ให้สร้าง fake session_id กลับไปเพื่อไม่ให้แอปพัง
+                if not session_id: session_id = str(uuid.uuid4())
+                title = "Error Saving Chat"
+
+        # 3. RETURN RESPONSE
+        return ChatResponse(
+            answer=answer,
+            query=sql_query,
+            timestamp=datetime.now().isoformat(),
+            session_id=session_id,
+            title=title if title else "Chat"
+        )
 
     return app
 
-
-# Create app instance
 app = create_app()
 
-
-# =============================================================================
-# MAIN ENTRY POINT
-# =============================================================================
-
 if __name__ == "__main__":
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
