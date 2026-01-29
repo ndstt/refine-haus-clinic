@@ -104,7 +104,7 @@ CREATE TABLE "customer" (
   "phone" varchar(10),
   "date_of_birth" date,
   "gender" gender,
-  "member_wallet_remain" decimal(10,2)
+  "member_wallet_remain" decimal(10,2) DEFAULT 0
 );
 
 CREATE TABLE supplier (

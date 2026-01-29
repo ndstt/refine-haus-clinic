@@ -4,6 +4,7 @@ import InventoryPage from "./components/inventoryPage";
 import ServicePage from "./components/servicePage";
 import Footer from "./components/footer";
 import NotFound from "./components/notFound";
+import CustomerPage from "./components/customerPage";
 import ChatPage from "./components/chatPage";
 import CategoryDetailPage from "./components/categoryDetailPage";
 import BookingFormPage from "./components/bookingFormPage";
@@ -25,7 +26,7 @@ export default function App() {
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/lumina" element={<ChatPage />} />
           <Route path="/home" element={<NotFound label="Home" />} />
-          <Route path="/blog" element={<NotFound label="Blog" />} />
+          <Route path="/customer" element={<CustomerPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
