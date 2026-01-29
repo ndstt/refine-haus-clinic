@@ -2,7 +2,7 @@ import cardBg from "../assets/service-bg.jpg";
 import { Link } from "react-router-dom";
 
 export default function ServiceCard({
-  category = "Treatment",
+  category,
   title,
   price,
   image,
@@ -29,15 +29,19 @@ export default function ServiceCard({
       </div>
 
       <div className="mt-3 text-left">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-black/60">
-          {category}
-        </div>
+        {category && (
+          <div className="text-[11px] uppercase tracking-[0.18em] text-black/60">
+            {category}
+          </div>
+        )}
         <h3 className="mt-1 font-luxury text-[22px] leading-tight text-black">
           {title}
         </h3>
-        <div className="mt-1 text-[12px] tracking-[0.12em] text-black/70">
-          THB. {price}
-        </div>
+        {price && (
+          <div className="mt-1 text-[12px] tracking-[0.12em] text-black/70">
+            THB. {price}
+          </div>
+        )}
       </div>
       </Link>
     );
@@ -60,17 +64,20 @@ export default function ServiceCard({
       </div>
 
       <div className="mt-3 text-left">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-black/60">
-          {category}
-        </div>
+        {category && (
+          <div className="text-[11px] uppercase tracking-[0.18em] text-black/60">
+            {category}
+          </div>
+        )}
         <h3 className="mt-1 font-luxury text-[22px] leading-tight text-black">
           {title}
         </h3>
-        <div className="mt-1 text-[12px] tracking-[0.12em] text-black/70">
-          THB. {price}
-        </div>
+        {price && (
+          <div className="mt-1 text-[12px] tracking-[0.12em] text-black/70">
+            THB. {price}
+          </div>
+        )}
       </div>
     </div>
   );
 }
-

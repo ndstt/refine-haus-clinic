@@ -6,6 +6,7 @@ import Footer from "./components/footer";
 import NotFound from "./components/notFound";
 import ChatPage from "./components/chatPage";
 import ServiceDetailPage from "./components/serviceDetailPage";
+import CategoryDetailPage from "./components/categoryDetailPage";
 import BookingTimePage from "./components/bookingTimePage";
 import BookingFormPage from "./components/bookingFormPage";
 import PaymentMethodPage from "./components/paymentMethodPage";
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/services" replace />} />
           <Route path="/services" element={<ServicePage />} />
           <Route path="/services/:serviceKey" element={<ServiceDetailPage />} />
+          <Route path="/category/:categoryKey" element={<CategoryDetailPage />} />
           <Route path="/booking-time" element={<BookingTimePage />} />
           <Route path="/booking" element={<BookingFormPage />} />
           <Route path="/payment" element={<PaymentMethodPage />} />

@@ -1,25 +1,19 @@
-import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { SERVICES } from "../data/service";
 
 export default function ServiceDetailPage() {
   const { serviceKey } = useParams();
   const navigate = useNavigate();
 
-  const service = useMemo(() => {
-    const found = (SERVICES || []).find((s) => String(s.key) === String(serviceKey));
-    return (
-      found || {
-        key: serviceKey,
-        title: "Anti Acne Facial",
-        price: 3460,
-        duration: "01h 30m",
-        therapist: "Dr Napat",
-        description:
-          "A treatment focused on reducing acne, calming inflammation, and preventing future breakouts. It usually includes deep cleansing, exfoliation, steam, comedone extraction, antibacterial mask, and oil-control finishing products.",
-      }
-    );
-  }, [serviceKey]);
+  // Legacy page - now using CategoryDetailPage instead
+  const service = {
+    key: serviceKey,
+    title: "Anti Acne Facial",
+    price: 3460,
+    duration: "01h 30m",
+    therapist: "Dr Napat",
+    description:
+      "A treatment focused on reducing acne, calming inflammation, and preventing future breakouts. It usually includes deep cleansing, exfoliation, steam, comedone extraction, antibacterial mask, and oil-control finishing products.",
+  };
 
   return (
     <section className="bg-[#d8cfb2] px-6 py-14 sm:py-16">
