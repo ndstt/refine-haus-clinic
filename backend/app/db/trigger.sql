@@ -56,88 +56,45 @@ ON "supplier"
 FOR EACH ROW
 EXECUTE FUNCTION set_supplier_code();
 
--- set_item_group_code: auto-generate group_code using item_type, item_group_id, and first 4 letters of name.
-CREATE OR REPLACE FUNCTION set_item_group_code()
-RETURNS trigger AS $$
-DECLARE
-  prefix text;
-  slug text;
-  compact text;
-  abbr text;
-BEGIN
-  IF NEW.group_code IS NULL OR NEW.group_code = '' THEN
-    IF NEW.name IS NULL OR NEW.item_type IS NULL OR NEW.item_group_id IS NULL THEN
-      RETURN NEW;
-    END IF;
-
-    prefix := CASE NEW.item_type
-      WHEN 'MEDICINE' THEN 'MED'
-      WHEN 'MEDICAL_TOOL' THEN 'TOOL'
-      ELSE 'ITEM'
-    END;
-
-    slug := normalize_code_part(NEW.name);
-    compact := replace(COALESCE(slug, ''), '-', '');
-    abbr := upper(left(compact, 4));
-
-    IF abbr IS NULL OR abbr = '' THEN
-      abbr := 'ITEM';
-    END IF;
-
-    NEW.group_code := prefix || '-' || NEW.item_group_id::text || '-' || abbr;
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_item_group_code
-BEFORE INSERT OR UPDATE OF name, item_type
-ON "item_group"
-FOR EACH ROW
-EXECUTE FUNCTION set_item_group_code();
-
--- set_item_code: auto-generate sku using group_code, item_id, and variant.
+-- set_item_code: auto-generate sku using item_type, name, item_id, and variant.
 CREATE OR REPLACE FUNCTION set_item_code()
 RETURNS trigger AS $$
 DECLARE
-  base_code text;
+  prefix text;
   name_part text;
+  variant_part text;
+  item_id_part text;
 BEGIN
   IF NEW.item_id IS NULL THEN
     RETURN NEW;
   END IF;
 
-  IF NEW.item_group_id IS NULL THEN
-    RETURN NEW;
-  END IF;
+  prefix := CASE NEW.item_type
+    WHEN 'MEDICINE' THEN 'MED'
+    WHEN 'MEDICAL_TOOL' THEN 'TOOL'
+    ELSE 'ITEM'
+  END;
 
-  SELECT group_code
-  INTO base_code
-  FROM "item_group"
-  WHERE item_group_id = NEW.item_group_id;
-
-  IF base_code IS NULL OR base_code = '' THEN
-    base_code := lpad(NEW.item_group_id::text, 6, '0');
-  END IF;
-
-  name_part := normalize_code_part(NEW.variant_name);
+  name_part := normalize_code_part(NEW.name);
   IF name_part IS NULL OR name_part = '' THEN
-    name_part := normalize_code_part(NEW.name);
+    name_part := 'ITEM';
+  END IF;
+  name_part := upper(name_part);
+
+  variant_part := normalize_code_part(NEW.variant_name);
+  IF variant_part IS NULL OR variant_part = '' THEN
+    variant_part := 'default';
   END IF;
 
-  IF name_part IS NULL OR name_part = '' THEN
-    NEW.sku := base_code || '-' || lpad(NEW.item_id::text, 6, '0');
-  ELSE
-    NEW.sku := base_code || '-' || lpad(NEW.item_id::text, 6, '0') || '-' || name_part;
-  END IF;
+  item_id_part := lpad(NEW.item_id::text, 6, '0');
+  NEW.sku := prefix || '-' || name_part || '-' || variant_part || '-' || item_id_part;
 
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_item_code
-BEFORE INSERT OR UPDATE OF item_id, item_group_id, name, variant_name
+BEFORE INSERT OR UPDATE OF item_id, item_type, name, variant_name
 ON "item_catalog"
 FOR EACH ROW
 EXECUTE FUNCTION set_item_code();
@@ -585,87 +542,69 @@ ON "purchase_invoice_item"
 FOR EACH ROW
 EXECUTE FUNCTION create_stock_movement_from_purchase_item();
 
--- STOCK GROUP QUANTITY (item_group current_qty)
--- refresh_item_group_quantity: recompute current_qty from stock_movement * unit_per_package.
-CREATE OR REPLACE FUNCTION refresh_item_group_quantity(target_item_group_id bigint)
+-- STOCK ITEM QUANTITY (item_catalog current_qty)
+-- refresh_item_quantity: recompute current_qty from stock_movement * unit_per_package.
+CREATE OR REPLACE FUNCTION refresh_item_quantity(target_item_id bigint)
 RETURNS void AS $$
 BEGIN
-  IF target_item_group_id IS NULL THEN
+  IF target_item_id IS NULL THEN
     RETURN;
   END IF;
 
-  UPDATE "item_group"
+  UPDATE "item_catalog" ic
   SET current_qty = COALESCE((
     SELECT SUM(sm.qty * COALESCE(ic.unit_per_package, 1))
-    FROM "item_catalog" ic
-    JOIN "stock_movement" sm
-      ON sm.item_id = ic.item_id
-    WHERE ic.item_group_id = target_item_group_id
+    FROM "stock_movement" sm
+    WHERE sm.item_id = ic.item_id
   ), 0)
-  WHERE item_group_id = target_item_group_id;
+  WHERE ic.item_id = target_item_id;
 END;
 $$ LANGUAGE plpgsql;
 
--- sync_item_group_quantity_from_stock_movement: keep group total in sync when stock moves.
-CREATE OR REPLACE FUNCTION sync_item_group_quantity_from_stock_movement()
+-- sync_item_quantity_from_stock_movement: keep item total in sync when stock moves.
+CREATE OR REPLACE FUNCTION sync_item_quantity_from_stock_movement()
 RETURNS trigger AS $$
 DECLARE
-  group_id bigint;
+  target_item_id bigint;
 BEGIN
   IF TG_OP = 'DELETE' THEN
-    SELECT item_group_id
-    INTO group_id
-    FROM "item_catalog"
-    WHERE item_id = OLD.item_id;
-
-    PERFORM refresh_item_group_quantity(group_id);
+    target_item_id := OLD.item_id;
+    PERFORM refresh_item_quantity(target_item_id);
     RETURN OLD;
   END IF;
 
-  SELECT item_group_id
-  INTO group_id
-  FROM "item_catalog"
-  WHERE item_id = NEW.item_id;
-
-  PERFORM refresh_item_group_quantity(group_id);
+  target_item_id := NEW.item_id;
+  PERFORM refresh_item_quantity(target_item_id);
 
   IF TG_OP = 'UPDATE' AND OLD.item_id IS DISTINCT FROM NEW.item_id THEN
-    SELECT item_group_id
-    INTO group_id
-    FROM "item_catalog"
-    WHERE item_id = OLD.item_id;
-    PERFORM refresh_item_group_quantity(group_id);
+    PERFORM refresh_item_quantity(OLD.item_id);
   END IF;
 
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_stock_movement_group_qty
+CREATE TRIGGER trg_stock_movement_item_qty
 AFTER INSERT OR UPDATE OR DELETE
 ON "stock_movement"
 FOR EACH ROW
-EXECUTE FUNCTION sync_item_group_quantity_from_stock_movement();
+EXECUTE FUNCTION sync_item_quantity_from_stock_movement();
 
--- sync_item_group_quantity_from_item_catalog: re-sync when unit_per_package or group changes.
-CREATE OR REPLACE FUNCTION sync_item_group_quantity_from_item_catalog()
+-- sync_item_quantity_from_item_catalog: re-sync when unit_per_package changes.
+CREATE OR REPLACE FUNCTION sync_item_quantity_from_item_catalog()
 RETURNS trigger AS $$
 BEGIN
-  PERFORM refresh_item_group_quantity(NEW.item_group_id);
-
-  IF OLD.item_group_id IS DISTINCT FROM NEW.item_group_id THEN
-    PERFORM refresh_item_group_quantity(OLD.item_group_id);
-  END IF;
+  PERFORM refresh_item_quantity(NEW.item_id);
 
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_item_catalog_group_qty
-AFTER UPDATE OF unit_per_package, item_group_id
+CREATE TRIGGER trg_item_catalog_item_qty
+AFTER UPDATE OF unit_per_package
 ON "item_catalog"
 FOR EACH ROW
-EXECUTE FUNCTION sync_item_group_quantity_from_item_catalog();
+EXECUTE FUNCTION sync_item_quantity_from_item_catalog();
 
 -- PROMOTIONS (stacking + benefit application)
 -- compare_numeric: compare two numbers using a rule operator.
@@ -1055,26 +994,25 @@ SELECT cron.schedule(
 );
 
 -- DAILY STOCK SNAPSHOT
--- snapshot_daily_stock: store daily group totals from stock_movement.
+-- snapshot_daily_stock: store daily item totals from stock_movement.
 CREATE OR REPLACE FUNCTION snapshot_daily_stock(p_stock_date date DEFAULT CURRENT_DATE)
 RETURNS void AS $$
 BEGIN
   INSERT INTO "daily_stock" (
     "stock_date",
-    "item_group_id",
+    "item_id",
     "qty"
   )
   SELECT
     p_stock_date,
-    ic.item_group_id,
+    ic.item_id,
     COALESCE(SUM(sm.qty * COALESCE(ic.unit_per_package, 1)), 0)
   FROM "item_catalog" ic
   LEFT JOIN "stock_movement" sm
     ON sm.item_id = ic.item_id
     AND sm.created_at < (p_stock_date + INTERVAL '1 day')
-  WHERE ic.item_group_id IS NOT NULL
-  GROUP BY ic.item_group_id
-  ON CONFLICT ("stock_date", "item_group_id")
+  GROUP BY ic.item_id
+  ON CONFLICT ("stock_date", "item_id")
   DO UPDATE SET "qty" = EXCLUDED."qty";
 END;
 $$ LANGUAGE plpgsql;

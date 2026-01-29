@@ -34,27 +34,19 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - phone: Supplier phone.
 - address: Supplier address.
 
-## item_group
-- item_group_id: Primary key.
-- group_code: Human-friendly group code like MED-000123 or TOOL-000123 (auto-generated).
-- name: Group name (base item name).
-- item_type: MEDICINE or MEDICAL_TOOL.
-- unit: Group unit (U, CC, PIECE).
-- current_qty: Current stock quantity for the group (sum of movements * unit_per_package).
-- description: Group notes.
-
 ## daily_stock
 - stock_date: Snapshot date.
-- item_group_id: FK to item_group.
-- qty: Total stock quantity for the group on that date.
+- item_id: FK to item_catalog.
+- qty: Total stock quantity for the item on that date.
 
 ## item_catalog
 - item_id: Primary key.
-- item_group_id: FK to item_group (groups variants of the same item).
-- sku: Human-friendly item code like 000123-000456-variant (auto-generated).
+- sku: Human-friendly item code like MED-LIDOCAINE-2-adrenaline-000250 (auto-generated).
 - name: Item name.
 - variant_name: Variant label (size, strength, etc.).
+- item_type: MEDICINE or MEDICAL_TOOL.
 - sell_price: Selling price per unit.
+- current_qty: Current stock quantity for the item (sum of movements * unit_per_package).
 - unit: U, CC, PIECE.
 - unit_per_package: Units per package (if applicable).
 - restock_threshlod: Restock threshold (typo kept as schema name).

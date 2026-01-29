@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 
 const API_BASE = "http://localhost:8000";
 
-export default function ChatPage() {
+export default function LuminaPage() {
   const [collapsed, setCollapsed] = useState(false);
   const [search, setSearch] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -139,9 +139,8 @@ export default function ChatPage() {
         {/* Sidebar */}
         <aside
           className={[
-            "border-r border-black/10 bg-[#f6eadb]",
-            "transition-[width] duration-200",
-            collapsed ? "w-[72px]" : "w-[280px]",
+            "border-r border-black/10 bg-[#f6eadb] transition-[width] duration-200",
+            collapsed ? "w-[72px]" : "w-[240px]",
           ].join(" ")}
         >
           <div className={collapsed ? "px-2 pt-6" : "px-6 pt-6"}>
@@ -152,12 +151,14 @@ export default function ChatPage() {
                   : "flex items-center justify-between"
               }
             >
-              {!collapsed && (
-                <div className="font-luxury text-[22px] tracking-[0.12em] text-black">
-                  LUMINA
-                </div>
-              )}
+              <ToggleIcon />
+            </button>
+          </div>
 
+          {/* nav / actions */}
+          {collapsed ? (
+            // collapsed: icon only, aligned like inventory collapsed
+            <div className="mt-8 flex flex-col items-center gap-3 pb-10">
               <button
                 type="button"
                 onClick={() => setCollapsed((v) => !v)}
@@ -204,7 +205,7 @@ export default function ChatPage() {
                       <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
                     </svg>
                   </span>
-                  <span className="text-[15px] text-black/80">New chat</span>
+                  <span className="text-[16px] text-black/80">New chat</span>
                 </button>
 
                 {/* Search */}
@@ -227,9 +228,6 @@ export default function ChatPage() {
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
 
           {/* Recents Sidebar List */}
           {!collapsed && (
@@ -322,8 +320,6 @@ export default function ChatPage() {
                     </div>
                   )}
                 </div>
-              )}
-            </div>
 
             {/* Composer (Bottom) */}
             {hasMessages && (
@@ -340,6 +336,7 @@ export default function ChatPage() {
                       className="w-full bg-transparent text-[14px] text-black/70 placeholder:text-black/35 focus:outline-none"
                       placeholder="Ask here..."
                     />
+
                     <button
                       type="button"
                       onClick={onSend}
