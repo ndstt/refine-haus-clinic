@@ -89,8 +89,14 @@ function NavIcon({ kind }) {
 
 function getTitle(activeTab) {
   if (activeTab === "import-items") return "Import";
-  if (activeTab === "withdraw-items") return "Withdraw";
+  if (activeTab === "withdraw-items") return "Withdraw Items";
   return "Item List";
+}
+
+function getSubtitle(activeTab) {
+  if (activeTab === "import-items") return "Import items information and amount";
+  if (activeTab === "withdraw-items") return "Withdraw items from using or edit";
+  return "Checking items information and amount";
 }
 
 function normalizeName(v) {
@@ -263,6 +269,51 @@ export default function InventoryPage() {
   const [importsError, setImportsError] = useState("");
 
   // -----------------------------
+  // Withdraw tab (Draft withdraw flow)
+  // NOTE: ไม่มี withdraw type ใน UI (ระบบอื่น ๆ เช่น โปรโมชั่น/สูตรยา/หมดอายุ จะไปตัดสต็อกจาก trigger อีกทาง)
+  // หน้านี้เน้น manual withdraw ที่ user ทำเอง
+  // -----------------------------
+  const [withdrawForm, setWithdrawForm] = useState({
+    code: "",
+    name: "",
+    variant: "",
+    type: "Medicine",
+    qty: "",
+    unit: "",
+  });
+  const [withdrawDraftItems, setWithdrawDraftItems] = useState([]);
+  const [withdrawItemSubmitting, setWithdrawItemSubmitting] = useState(false);
+  const [withdrawConfirming, setWithdrawConfirming] = useState(false);
+  const [withdrawError, setWithdrawError] = useState("");
+  const [withdrawLookupLoading, setWithdrawLookupLoading] = useState(false);
+  const withdrawLookupSeq = useRef(0);
+
+  const [withdrawFilters, setWithdrawFilters] = useState({
+    code: "",
+    name: "",
+    variant: "",
+    type: "All",
+    timeFrom: "",
+    timeTo: "",
+    qtyMin: "",
+    qtyMax: "",
+  });
+  const [appliedWithdrawFilters, setAppliedWithdrawFilters] = useState({
+    code: "",
+    name: "",
+    variant: "",
+    type: "All",
+    timeFrom: "",
+    timeTo: "",
+    qtyMin: "",
+    qtyMax: "",
+    movementType: "WITHDRAW",
+  });
+  const [recentWithdraws, setRecentWithdraws] = useState([]);
+  const [withdrawsLoading, setWithdrawsLoading] = useState(false);
+  const [withdrawsError, setWithdrawsError] = useState("");
+
+  // -----------------------------
   // Restore draft (localStorage)
   // -----------------------------
   useEffect(() => {
@@ -415,7 +466,7 @@ export default function InventoryPage() {
     setImportsLoading(true);
     setImportsError("");
 
-    const params = new URLSearchParams({ limit: "10" });
+    const params = new URLSearchParams({ limit: "10", movement_type: "WITHDRAW" });
     if (appliedImportFilters.code) params.set("code", appliedImportFilters.code);
     if (appliedImportFilters.name) params.set("name", appliedImportFilters.name);
     if (appliedImportFilters.variant)
@@ -474,6 +525,62 @@ export default function InventoryPage() {
   }, [activeTab, appliedImportFilters, apiBase]);
 
   // -----------------------------
+  // Withdraw history fetch
+  // -----------------------------
+  useEffect(() => {
+    if (activeTab !== "withdraw-items") return;
+
+    let isMounted = true;
+    setWithdrawsLoading(true);
+    setWithdrawsError("");
+
+    const params = new URLSearchParams({ limit: "10" });
+    if (appliedWithdrawFilters.code) params.set("code", appliedWithdrawFilters.code);
+    if (appliedWithdrawFilters.name) params.set("name", appliedWithdrawFilters.name);
+    if (appliedWithdrawFilters.variant)
+      params.set("variant", appliedWithdrawFilters.variant);
+    if (appliedWithdrawFilters.type && appliedWithdrawFilters.type !== "All") {
+      params.set("item_type", apiItemType(appliedWithdrawFilters.type));
+    }
+    if (appliedWithdrawFilters.timeFrom)
+      params.set("time_from", appliedWithdrawFilters.timeFrom);
+    if (appliedWithdrawFilters.timeTo)
+      params.set("time_to", appliedWithdrawFilters.timeTo);
+    if (appliedWithdrawFilters.qtyMin) params.set("qty_min", appliedWithdrawFilters.qtyMin);
+    if (appliedWithdrawFilters.qtyMax) params.set("qty_max", appliedWithdrawFilters.qtyMax);
+
+    fetch(`${apiBase}/transaction/withdraw-items?${params.toString()}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Request failed (${res.status})`);
+        return res.json();
+      })
+      .then((data) => {
+        if (!isMounted) return;
+        const list = Array.isArray(data.items)
+          ? data.items
+          : Array.isArray(data.withdraws)
+            ? data.withdraws
+            : Array.isArray(data)
+              ? data
+              : [];
+        setRecentWithdraws(list);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setRecentWithdraws([]);
+        setWithdrawsError("Cannot load withdraw list. Check backend connection.");
+      })
+      .finally(() => {
+        if (!isMounted) return;
+        setWithdrawsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab, appliedWithdrawFilters, apiBase]);
+
+  // -----------------------------
   // Auto-fill item name/variant when item code is typed
   // -----------------------------
   useEffect(() => {
@@ -523,6 +630,57 @@ export default function InventoryPage() {
 
     return () => clearTimeout(timer);
   }, [activeTab, itemForm.code, apiBase]);
+
+  // -----------------------------
+  // Auto-fill withdraw form when item code is typed
+  // -----------------------------
+  useEffect(() => {
+    if (activeTab !== "withdraw-items") return;
+
+    const code = withdrawForm.code?.trim();
+    if (!code) {
+      setWithdrawLookupLoading(false);
+      return;
+    }
+
+    const seq = ++withdrawLookupSeq.current;
+    setWithdrawLookupLoading(true);
+
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams({ code, limit: "1" });
+      fetch(`${apiBase}/resource/item-catalog?${params.toString()}`)
+        .then((res) => {
+          if (!res.ok) throw new Error(`Request failed (${res.status})`);
+          return res.json();
+        })
+        .then((data) => {
+          if (seq !== withdrawLookupSeq.current) return;
+          const list = Array.isArray(data?.items)
+            ? data.items
+            : Array.isArray(data)
+              ? data
+              : [];
+          if (!list.length) return;
+          const item = list[0] ?? {};
+          setWithdrawForm((prev) => ({
+            ...prev,
+            name: prev.name || item.name || "",
+            variant: prev.variant || item.variant_name || "",
+            type: item.item_type ? uiItemType(item.item_type) : prev.type,
+            unit: prev.unit || item.unit || "",
+          }));
+        })
+        .catch(() => {
+          if (seq !== withdrawLookupSeq.current) return;
+        })
+        .finally(() => {
+          if (seq !== withdrawLookupSeq.current) return;
+          setWithdrawLookupLoading(false);
+        });
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [activeTab, withdrawForm.code, apiBase]);
 
   // -----------------------------
   // Draft helpers
@@ -822,6 +980,127 @@ export default function InventoryPage() {
   }
 
   // -----------------------------
+  // Withdraw draft helpers (frontend draft)
+  // -----------------------------
+  function withdrawRowKey(row) {
+    const code = row.item_code ?? row.code ?? "";
+    const variant = row.item_variant ?? row.variant ?? "";
+    const unit = row.unit ?? "";
+    return `${code}__${variant}__${unit}`;
+  }
+
+  async function addWithdrawToDraft() {
+    setWithdrawError("");
+
+    const payload = {
+      item_code: withdrawForm.code?.trim(),
+      item_name: withdrawForm.name?.trim(),
+      item_variant: withdrawForm.variant?.trim(),
+      item_type: apiItemType(withdrawForm.type),
+      qty: Number(withdrawForm.qty),
+      unit: withdrawForm.unit?.trim(),
+    };
+
+    if (!payload.item_name) return setWithdrawError("Item Name is required.");
+    if (!payload.qty || payload.qty <= 0) return setWithdrawError("Quantity must be greater than 0.");
+    if (!payload.unit) return setWithdrawError("Unit is required.");
+
+    setWithdrawItemSubmitting(true);
+    try {
+      // Draft อยู่ฝั่ง frontend: กด Withdraw = เพิ่มเข้าดราฟท์ (ยังไม่ตัดสต็อก)
+      setWithdrawDraftItems((prev) => {
+        const key = withdrawRowKey(payload);
+        const hitIdx = prev.findIndex((x) => withdrawRowKey(x) === key);
+        if (hitIdx === -1) return [...prev, payload];
+        const next = [...prev];
+        const old = next[hitIdx];
+        next[hitIdx] = { ...old, qty: Number(old.qty ?? 0) + payload.qty };
+        return next;
+      });
+
+      setWithdrawForm((s) => ({
+        ...s,
+        code: "",
+        name: "",
+        variant: "",
+        type: "Medicine",
+        qty: "",
+        unit: "",
+      }));
+    } finally {
+      setWithdrawItemSubmitting(false);
+    }
+  }
+
+  function removeWithdrawDraftRow(row) {
+    const key = withdrawRowKey(row);
+    setWithdrawDraftItems((prev) => prev.filter((x) => withdrawRowKey(x) !== key));
+  }
+
+  async function confirmWithdrawDraft() {
+    if (!withdrawDraftItems.length) return;
+    setWithdrawError("");
+    setWithdrawConfirming(true);
+
+    const body = {
+      occurred_at: new Date().toISOString(),
+      items: withdrawDraftItems.map((x) => ({
+        item_code: x.item_code ?? x.code ?? null,
+        item_name: x.item_name ?? x.name ?? null,
+        item_variant: x.item_variant ?? x.variant ?? null,
+        item_type: x.item_type ?? apiItemType(x.type),
+        qty: Number(x.qty),
+        unit: x.unit ?? null,
+      })),
+    };
+
+    try {
+      // แนะนำให้ backend ทำ endpoint นี้เพื่อ insert stock_movement แบบ batch
+      // POST /transaction/withdraw-items
+      let res = await fetch(`${apiBase}/transaction/withdraw-items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      // fallback: ถ้าไม่มี endpoint นี้ ลองยิงทีละรายการไป /stock-movement
+      if (res.status === 404) {
+        for (const it of body.items) {
+          // qty ฝั่ง withdraw ให้ backend ตีความเป็น OUT (หรือจะส่งเป็น -qty ก็ได้แล้วแต่มาตรฐาน)
+          const r = await fetch(`${apiBase}/stock-movement`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              movement_type: "MANUAL_OUT",
+              item_code: it.item_code,
+              qty: -Math.abs(Number(it.qty)),
+              unit: it.unit,
+            }),
+          });
+          if (!r.ok) {
+            const d = await safeJson(r);
+            throw new Error(d?.message ?? `Request failed (${r.status})`);
+          }
+        }
+        res = { ok: true, status: 200 };
+      }
+
+      if (!res.ok) {
+        const data = await safeJson(res);
+        throw new Error(data?.message ?? `Request failed (${res.status})`);
+      }
+
+      // success
+      setWithdrawDraftItems([]);
+      setAppliedWithdrawFilters((x) => ({ ...x }));
+    } catch (e) {
+      setWithdrawError(e?.message || "Withdraw failed.");
+    } finally {
+      setWithdrawConfirming(false);
+    }
+  }
+
+  // -----------------------------
   // UI
   // -----------------------------
   return (
@@ -918,7 +1197,7 @@ export default function InventoryPage() {
               {getTitle(activeTab)}
             </h1>
             <p className="mt-1 text-[13px] text-black/60">
-              Checking items information and amount
+              {getSubtitle(activeTab)}
             </p>
           </div>
 
@@ -1218,7 +1497,7 @@ export default function InventoryPage() {
                     <Field label="Issue / Receive Date">
                       <input
                         type="date"
-                        className="mt-1 rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
+                        className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
                         value={draftHeader.issueDate}
                         onChange={(e) =>
                           setDraftHeader((s) => ({ ...s, issueDate: e.target.value }))
@@ -1620,6 +1899,21 @@ export default function InventoryPage() {
                       placeholder="2026-01-31T23:59:59"
                     />
                   </Field>
+                  <Field label="Time Order">
+                    <select
+                      className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
+                      value={importFilters.timeOrder}
+                      onChange={(e) =>
+                        setImportFilters((s) => ({
+                          ...s,
+                          timeOrder: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="desc">Newest → Oldest</option>
+                      <option value="asc">Oldest → Newest</option>
+                    </select>
+                  </Field>
                   <Field label="Expire From">
                     <input
                       type="date"
@@ -1648,25 +1942,7 @@ export default function InventoryPage() {
                   </Field>
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-end gap-3">
-                  <div className="min-w-[220px]">
-                    <Field label="Time Order">
-                      <select
-                        className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
-                        value={importFilters.timeOrder}
-                        onChange={(e) =>
-                          setImportFilters((s) => ({
-                            ...s,
-                            timeOrder: e.target.value,
-                          }))
-                        }
-                      >
-                        <option value="desc">Newest → Oldest</option>
-                        <option value="asc">Oldest → Newest</option>
-                      </select>
-                    </Field>
-                  </div>
-
+                <div className="mt-4 flex items-center">
                   <button
                     type="button"
                     onClick={() => setAppliedImportFilters(importFilters)}
@@ -1721,12 +1997,303 @@ export default function InventoryPage() {
           {/* WITHDRAW TAB */}
           {/* --------------------- */}
           {activeTab === "withdraw-items" ? (
-            <div className="mt-6 rounded-2xl border border-black/10 bg-white px-6 py-6 shadow-sm">
-              <div className="text-[14px] font-semibold text-black">Withdraw Items</div>
-              <p className="mt-2 text-[12px] text-black/50">
-                หน้านี้ยังเป็น placeholder — ถ้าจะทำ flow ถอนของแบบ draft เหมือน Import ได้เหมือนกัน
-              </p>
-            </div>
+            <>
+              {/* Withdraw form (เหมือนรูป) */}
+              <div className="mt-4 rounded-2xl border border-black/10 bg-white px-6 py-6 shadow-sm">
+                <div className="grid gap-4 lg:grid-cols-3">
+                  <Field label="Item Code" hint={withdrawLookupLoading ? "loading..." : ""}>
+                    <input
+                      className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-2 text-[12px]"
+                      value={withdrawForm.code}
+                      onChange={(e) =>
+                        setWithdrawForm((s) => ({ ...s, code: e.target.value }))
+                      }
+                    />
+                  </Field>
+
+                  <Field label="Item Name">
+                    <input
+                      className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-2 text-[12px]"
+                      value={withdrawForm.name}
+                      onChange={(e) =>
+                        setWithdrawForm((s) => ({ ...s, name: e.target.value }))
+                      }
+                    />
+                  </Field>
+
+                  <Field label="Item Variant">
+                    <input
+                      className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-2 text-[12px]"
+                      value={withdrawForm.variant}
+                      onChange={(e) =>
+                        setWithdrawForm((s) => ({ ...s, variant: e.target.value }))
+                      }
+                    />
+                  </Field>
+
+                  <Field label="Type">
+                    <select
+                      className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-2 text-[12px] text-black/70"
+                      value={withdrawForm.type}
+                      onChange={(e) =>
+                        setWithdrawForm((s) => ({ ...s, type: e.target.value }))
+                      }
+                    >
+                      <option>Medicine</option>
+                      <option>Tool</option>
+                    </select>
+                  </Field>
+
+                  <Field label="Quantity">
+                    <input
+                      type="number"
+                      min="0"
+                      className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-2 text-[12px]"
+                      value={withdrawForm.qty}
+                      onChange={(e) =>
+                        setWithdrawForm((s) => ({ ...s, qty: e.target.value }))
+                      }
+                    />
+                  </Field>
+
+                  <Field label="Unit">
+                    <input
+                      className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-2 text-[12px]"
+                      value={withdrawForm.unit}
+                      onChange={(e) =>
+                        setWithdrawForm((s) => ({ ...s, unit: e.target.value }))
+                      }
+                    />
+                  </Field>
+                </div>
+
+                <div className="mt-4 flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={addWithdrawToDraft}
+                    disabled={withdrawItemSubmitting}
+                    className="inline-flex items-center justify-center rounded-full bg-[#f3e5d6] px-10 py-2 text-[12px] font-semibold text-black/80 transition hover:bg-[#ead4c0] disabled:opacity-60"
+                  >
+                    {withdrawItemSubmitting ? "Working..." : "Withdraw"}
+                  </button>
+                </div>
+
+                {withdrawError ? (
+                  <div className="mt-3 text-[12px] text-red-600">{withdrawError}</div>
+                ) : null}
+
+                {/* Draft (ซ่อนตอนยังไม่มีรายการ เพื่อให้หน้าตาเริ่มต้นตรงกับรูป) */}
+                {withdrawDraftItems.length ? (
+                  <div className="mt-5 border-t border-black/5 pt-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-[13px] font-semibold text-black">
+                          Draft
+                        </div>
+                        <p className="mt-1 text-[12px] text-black/50">
+                          กด Withdraw เพื่อเพิ่มรายการเข้า draft แล้วค่อย Confirm ทีเดียว
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={confirmWithdrawDraft}
+                        disabled={withdrawConfirming}
+                        className="inline-flex items-center justify-center rounded-full bg-black px-8 py-2 text-[12px] font-semibold text-white/90 transition hover:bg-black/80 disabled:opacity-50"
+                      >
+                        {withdrawConfirming ? "Confirming..." : "Confirm Draft"}
+                      </button>
+                    </div>
+
+                    <div className="mt-3 overflow-x-auto">
+                      <table className="w-full text-left text-[12px] text-black/80">
+                        <thead>
+                          <tr className="text-[11px] uppercase tracking-[0.12em] text-black/50">
+                            <th className="pb-3 font-semibold">Code</th>
+                            <th className="pb-3 font-semibold">Name</th>
+                            <th className="pb-3 font-semibold">Variant</th>
+                            <th className="pb-3 font-semibold">Type</th>
+                            <th className="pb-3 font-semibold">Quantity</th>
+                            <th className="pb-3 font-semibold">Unit</th>
+                            <th className="pb-3 font-semibold"> </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {withdrawDraftItems.map((row, idx) => (
+                            <tr
+                              key={withdrawRowKey(row) || idx}
+                              className="border-t border-black/5"
+                            >
+                              <td className="py-2 whitespace-nowrap">{row.item_code ?? row.code ?? "-"}</td>
+                              <td className="py-2 whitespace-nowrap">{row.item_name ?? row.name ?? "-"}</td>
+                              <td className="py-2 whitespace-nowrap">{row.item_variant ?? row.variant ?? "-"}</td>
+                              <td className="py-2 whitespace-nowrap">{uiItemType(row.item_type) ?? row.type ?? "-"}</td>
+                              <td className="py-2 whitespace-nowrap">{row.qty ?? "-"}</td>
+                              <td className="py-2 whitespace-nowrap">{row.unit ?? "-"}</td>
+                              <td className="py-2">
+                                <button
+                                  type="button"
+                                  onClick={() => removeWithdrawDraftRow(row)}
+                                  className="rounded-full border border-black/10 bg-white px-4 py-1 text-[12px] font-semibold text-black/60 transition hover:bg-black/5"
+                                >
+                                  Remove
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Search and Filter (เหมือนรูป) */}
+              <div className="mt-6 rounded-2xl border border-black/10 bg-white px-6 py-6 shadow-sm">
+                <div className="text-[13px] font-semibold text-black">Search and Filter</div>
+                <p className="mt-1 text-[12px] text-black/50">
+                  Search and Filter by condition you want
+                </p>
+
+                <div className="mt-4 grid gap-4 lg:grid-cols-4">
+                  <Field label="Item Code">
+                    <input
+                      className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
+                      value={withdrawFilters.code}
+                      onChange={(e) =>
+                        setWithdrawFilters((s) => ({ ...s, code: e.target.value }))
+                      }
+                    />
+                  </Field>
+                  <Field label="Item Name">
+                    <input
+                      className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
+                      value={withdrawFilters.name}
+                      onChange={(e) =>
+                        setWithdrawFilters((s) => ({ ...s, name: e.target.value }))
+                      }
+                    />
+                  </Field>
+                  <Field label="Item Variant">
+                    <input
+                      className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
+                      value={withdrawFilters.variant}
+                      onChange={(e) =>
+                        setWithdrawFilters((s) => ({ ...s, variant: e.target.value }))
+                      }
+                    />
+                  </Field>
+                  <Field label="Item Type">
+                    <select
+                      className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px] text-black/70"
+                      value={withdrawFilters.type}
+                      onChange={(e) =>
+                        setWithdrawFilters((s) => ({ ...s, type: e.target.value }))
+                      }
+                    >
+                      <option>All</option>
+                      <option>Medicine</option>
+                      <option>Tool</option>
+                    </select>
+                  </Field>
+                </div>
+
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <div className="text-[12px] font-semibold text-black/70">Time</div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <input
+                        className="w-full max-w-[160px] rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
+                        value={withdrawFilters.timeFrom}
+                        onChange={(e) =>
+                          setWithdrawFilters((s) => ({ ...s, timeFrom: e.target.value }))
+                        }
+                      />
+                      <span className="text-[12px] text-black/40">-</span>
+                      <input
+                        className="w-full max-w-[160px] rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
+                        value={withdrawFilters.timeTo}
+                        onChange={(e) =>
+                          setWithdrawFilters((s) => ({ ...s, timeTo: e.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[12px] font-semibold text-black/70">Quantity</div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full max-w-[160px] rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
+                        value={withdrawFilters.qtyMin}
+                        onChange={(e) =>
+                          setWithdrawFilters((s) => ({ ...s, qtyMin: e.target.value }))
+                        }
+                      />
+                      <span className="text-[12px] text-black/40">-</span>
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full max-w-[160px] rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
+                        value={withdrawFilters.qtyMax}
+                        onChange={(e) =>
+                          setWithdrawFilters((s) => ({ ...s, qtyMax: e.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setAppliedWithdrawFilters(withdrawFilters)}
+                    className="ml-auto inline-flex items-center justify-center rounded-full bg-[#f3e5d6] px-10 py-2 text-[12px] font-semibold text-black/80 transition hover:bg-[#ead4c0]"
+                  >
+                    Search
+                  </button>
+                </div>
+              </div>
+
+              {/* Recently withdraw (เหมือนรูป) */}
+              <div className="mt-6 rounded-2xl border border-black/10 bg-white px-6 py-6 shadow-sm">
+                <div className="text-[13px] font-semibold text-black">Recently withdraw</div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-left text-[12px] text-black/80">
+                    <thead>
+                      <tr className="text-[11px] uppercase tracking-[0.12em] text-black/50">
+                        <th className="pb-3 font-semibold">Time</th>
+                        <th className="pb-3 font-semibold">Code</th>
+                        <th className="pb-3 font-semibold">Name</th>
+                        <th className="pb-3 font-semibold">Variant</th>
+                        <th className="pb-3 font-semibold">Type</th>
+                        <th className="pb-3 font-semibold">Quantity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentWithdraws.map((row, idx) => (
+                        <tr key={row.id ?? row.created_at ?? idx} className="border-t border-black/5">
+                          <td className="py-2 whitespace-nowrap">{formatDateTime(row.time ?? row.created_at ?? row.createdAt)}</td>
+                          <td className="py-2 whitespace-nowrap">{row.item_code ?? row.sku ?? row.code ?? "-"}</td>
+                          <td className="py-2 whitespace-nowrap">{row.item_name ?? row.name ?? "-"}</td>
+                          <td className="py-2 whitespace-nowrap">{row.item_variant ?? row.variant_name ?? row.variant ?? "-"}</td>
+                          <td className="py-2 whitespace-nowrap">{uiItemType(row.item_type) ?? row.type ?? "-"}</td>
+                          <td className="py-2 whitespace-nowrap">{row.qty ?? row.quantity ?? "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {withdrawsLoading ? (
+                  <div className="mt-3 text-[12px] text-black/50">Loading...</div>
+                ) : null}
+                {withdrawsError ? (
+                  <div className="mt-3 text-[12px] text-red-600">{withdrawsError}</div>
+                ) : null}
+              </div>
+            </>
           ) : null}
         </div>
       </div>
