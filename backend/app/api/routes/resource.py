@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from app.db.postgres import DataBasePool
+from app.schemas.customer import CustomerCreateRequest, CustomerListResponse, CustomerRow
 from app.schemas.inventory import ItemCatalogItem, ItemCatalogPage
 from app.schemas.purchase import SupplierOption, SupplierOptionResponse
 
@@ -116,6 +117,59 @@ async def list_item_catalog(
         limit=limit,
         total_pages=total_pages,
     )
+
+
+@router.get("/customers", response_model=CustomerListResponse)
+async def list_customers() -> CustomerListResponse:
+    pool = await DataBasePool.get_pool()
+    async with pool.acquire() as connection:
+        rows = await connection.fetch(
+            """
+            SELECT
+              customer_id,
+              customer_code,
+              full_name,
+              nickname,
+              phone,
+              date_of_birth,
+              gender,
+              member_wallet_remain
+            FROM customer
+            ORDER BY full_name ASC NULLS LAST, customer_id ASC
+            """
+        )
+    return CustomerListResponse(items=[CustomerRow(**dict(row)) for row in rows])
+
+
+@router.post("/customers", response_model=CustomerRow)
+async def create_customer(payload: CustomerCreateRequest) -> CustomerRow:
+    name = (payload.full_name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="full_name is required")
+
+    pool = await DataBasePool.get_pool()
+    async with pool.acquire() as connection:
+        row = await connection.fetchrow(
+            """
+            INSERT INTO customer (full_name, nickname, phone, date_of_birth, gender)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING
+              customer_id,
+              customer_code,
+              full_name,
+              nickname,
+              phone,
+              date_of_birth,
+              gender,
+              member_wallet_remain
+            """,
+            name,
+            payload.nickname,
+            payload.phone,
+            payload.date_of_birth,
+            payload.gender,
+        )
+    return CustomerRow(**dict(row))
 
 
 @router.get("/supplier", response_model=SupplierOptionResponse)
