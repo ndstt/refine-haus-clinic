@@ -1218,7 +1218,7 @@ export default function InventoryPage() {
                     <Field label="Issue / Receive Date">
                       <input
                         type="date"
-                        className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
+                        className="mt-1 rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
                         value={draftHeader.issueDate}
                         onChange={(e) =>
                           setDraftHeader((s) => ({ ...s, issueDate: e.target.value }))
@@ -1620,21 +1620,6 @@ export default function InventoryPage() {
                       placeholder="2026-01-31T23:59:59"
                     />
                   </Field>
-                  <Field label="Time Order">
-                    <select
-                      className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
-                      value={importFilters.timeOrder}
-                      onChange={(e) =>
-                        setImportFilters((s) => ({
-                          ...s,
-                          timeOrder: e.target.value,
-                        }))
-                      }
-                    >
-                      <option value="desc">Newest → Oldest</option>
-                      <option value="asc">Oldest → Newest</option>
-                    </select>
-                  </Field>
                   <Field label="Expire From">
                     <input
                       type="date"
@@ -1663,7 +1648,25 @@ export default function InventoryPage() {
                   </Field>
                 </div>
 
-                <div className="mt-4 flex items-center">
+                <div className="mt-4 flex flex-wrap items-end gap-3">
+                  <div className="min-w-[220px]">
+                    <Field label="Time Order">
+                      <select
+                        className="rounded-lg border border-black/10 bg-[#f8efe7] px-3 py-1.5 text-[12px]"
+                        value={importFilters.timeOrder}
+                        onChange={(e) =>
+                          setImportFilters((s) => ({
+                            ...s,
+                            timeOrder: e.target.value,
+                          }))
+                        }
+                      >
+                        <option value="desc">Newest → Oldest</option>
+                        <option value="asc">Oldest → Newest</option>
+                      </select>
+                    </Field>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => setAppliedImportFilters(importFilters)}
