@@ -2,6 +2,7 @@ from fastapi import APIRouter, Query
 
 from app.db.postgres import DataBasePool
 from app.schemas.inventory import ItemCatalogItem, ItemCatalogPage
+from app.schemas.purchase import SupplierOption, SupplierOptionResponse
 
 # Application domain resources will live under /api/v1/resource/*
 router = APIRouter(prefix="/resource", tags=["resource"])
@@ -114,4 +115,34 @@ async def list_item_catalog(
         page=page,
         limit=limit,
         total_pages=total_pages,
+    )
+
+
+@router.get("/supplier", response_model=SupplierOptionResponse)
+async def list_suppliers(
+    query: str | None = Query(None),
+    limit: int = Query(8, ge=1, le=50),
+) -> SupplierOptionResponse:
+    pool = await DataBasePool.get_pool()
+    values = []
+    where_clause = ""
+    if query:
+        values.append(f"%{query.strip()}%")
+        where_clause = f"WHERE name ILIKE ${len(values)}"
+
+    async with pool.acquire() as connection:
+        rows = await connection.fetch(
+            f"""
+            SELECT supplier_id, name
+            FROM supplier
+            {where_clause}
+            ORDER BY name ASC
+            LIMIT ${len(values) + 1}
+            """,
+            *values,
+            limit,
+        )
+
+    return SupplierOptionResponse(
+        suppliers=[SupplierOption(**dict(row)) for row in rows]
     )
