@@ -466,7 +466,7 @@ export default function InventoryPage() {
     setImportsLoading(true);
     setImportsError("");
 
-    const params = new URLSearchParams({ limit: "10", movement_type: "WITHDRAW" });
+    const params = new URLSearchParams({ limit: "10" });
     if (appliedImportFilters.code) params.set("code", appliedImportFilters.code);
     if (appliedImportFilters.name) params.set("name", appliedImportFilters.name);
     if (appliedImportFilters.variant)
@@ -534,7 +534,7 @@ export default function InventoryPage() {
     setWithdrawsLoading(true);
     setWithdrawsError("");
 
-    const params = new URLSearchParams({ limit: "10" });
+    const params = new URLSearchParams({ limit: "10", movement_type: "WITHDRAW" });
     if (appliedWithdrawFilters.code) params.set("code", appliedWithdrawFilters.code);
     if (appliedWithdrawFilters.name) params.set("name", appliedWithdrawFilters.name);
     if (appliedWithdrawFilters.variant)
@@ -1044,6 +1044,7 @@ export default function InventoryPage() {
 
     const body = {
       occurred_at: new Date().toISOString(),
+      movement_type: "WITHDRAW",
       items: withdrawDraftItems.map((x) => ({
         item_code: x.item_code ?? x.code ?? null,
         item_name: x.item_name ?? x.name ?? null,
@@ -1071,7 +1072,7 @@ export default function InventoryPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              movement_type: "MANUAL_OUT",
+              movement_type: "WITHDRAW",
               item_code: it.item_code,
               qty: -Math.abs(Number(it.qty)),
               unit: it.unit,
@@ -1974,7 +1975,13 @@ export default function InventoryPage() {
                           <td className="py-2 whitespace-nowrap">{row.item_code ?? row.sku ?? row.code ?? "-"}</td>
                           <td className="py-2 whitespace-nowrap">{row.item_name ?? row.name ?? "-"}</td>
                           <td className="py-2 whitespace-nowrap">{row.item_variant ?? row.variant_name ?? row.variant ?? "-"}</td>
-                          <td className="py-2 whitespace-nowrap">{row.qty ?? row.quantity ?? "-"}</td>
+                          <td className="py-2 whitespace-nowrap">
+                            {row.qty === null || row.qty === undefined
+                              ? row.quantity === null || row.quantity === undefined
+                                ? "-"
+                                : Math.abs(Number(row.quantity))
+                              : Math.abs(Number(row.qty))}
+                          </td>
                           <td className="py-2 whitespace-nowrap">{row.purchase_price_per_unit ?? row.buy_price ?? row.purchasePricePerUnit ?? "-"}</td>
                           <td className="py-2 whitespace-nowrap">{formatDate(row.expire_date ?? row.expireDate)}</td>
                         </tr>
@@ -2279,7 +2286,13 @@ export default function InventoryPage() {
                           <td className="py-2 whitespace-nowrap">{row.item_name ?? row.name ?? "-"}</td>
                           <td className="py-2 whitespace-nowrap">{row.item_variant ?? row.variant_name ?? row.variant ?? "-"}</td>
                           <td className="py-2 whitespace-nowrap">{uiItemType(row.item_type) ?? row.type ?? "-"}</td>
-                          <td className="py-2 whitespace-nowrap">{row.qty ?? row.quantity ?? "-"}</td>
+                          <td className="py-2 whitespace-nowrap">
+                            {row.qty === null || row.qty === undefined
+                              ? row.quantity === null || row.quantity === undefined
+                                ? "-"
+                                : Math.abs(Number(row.quantity))
+                              : Math.abs(Number(row.qty))}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
