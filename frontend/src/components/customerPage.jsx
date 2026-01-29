@@ -84,7 +84,7 @@ export default function CustomerPage() {
         <div className="rounded-2xl border border-black/10 bg-white px-6 py-6 shadow-sm">
           <div className="text-[18px] font-semibold text-black">Customer</div>
           <p className="mt-1 text-[12px] text-black/50">
-            Add customer info and see the list ordered ¡-Î
+            Add customer info and see the list ordered
           </p>
 
           <form onSubmit={onSubmit} className="mt-4 grid gap-3 md:grid-cols-2">
