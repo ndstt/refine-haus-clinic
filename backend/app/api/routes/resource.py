@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query
 
 from app.db.postgres import DataBasePool
+from app.schemas.customer import CustomerOption, CustomerSearchResponse
 from app.schemas.inventory import ItemCatalogItem, ItemCatalogPage
 from app.schemas.purchase import SupplierOption, SupplierOptionResponse
 
@@ -145,4 +146,41 @@ async def list_suppliers(
 
     return SupplierOptionResponse(
         suppliers=[SupplierOption(**dict(row)) for row in rows]
+    )
+
+
+@router.get("/customer", response_model=CustomerSearchResponse)
+async def search_customers(
+    query: str | None = Query(None, description="Search by name or customer_code"),
+    limit: int = Query(8, ge=1, le=50),
+) -> CustomerSearchResponse:
+    """
+    Search customers by name or customer_code.
+    Returns matching customers for autocomplete.
+    """
+    pool = await DataBasePool.get_pool()
+    values = []
+    where_clause = ""
+
+    if query:
+        search_term = f"%{query.strip()}%"
+        values.append(search_term)
+        values.append(search_term)
+        where_clause = "WHERE full_name ILIKE $1 OR customer_code ILIKE $2"
+
+    async with pool.acquire() as connection:
+        rows = await connection.fetch(
+            f"""
+            SELECT customer_id, customer_code, full_name, nickname
+            FROM customer
+            {where_clause}
+            ORDER BY full_name ASC
+            LIMIT ${len(values) + 1}
+            """,
+            *values,
+            limit,
+        )
+
+    return CustomerSearchResponse(
+        customers=[CustomerOption(**dict(row)) for row in rows]
     )
