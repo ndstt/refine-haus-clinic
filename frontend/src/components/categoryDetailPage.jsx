@@ -40,7 +40,7 @@ export default function CategoryDetailPage() {
 
   const handleBooking = () => {
     if (selectedTreatment) {
-      navigate("/booking-time", { state: { treatment: selectedTreatment } });
+      navigate("/booking", { state: { treatment: selectedTreatment } });
     }
   };
 

@@ -1,44 +1,51 @@
-import placeholder from "../assets/fruit-facial.svg";
+import shapeImg from "../assets/Shape.png";
+import mesoImg from "../assets/Meso.png";
+import boosterImg from "../assets/Hydrobooster.png";
+import botoxImg from "../assets/Botox.png";
+import lorientImg from "../assets/Loreint.png";
+import vaccineImg from "../assets/snake.png";
+import bioImg from "../assets/Bio.png";
+import fillerImg from "../assets/Filler.png";
 
 export const CATEGORIES = [
   {
     key: "shape",
     title: "Shape",
-    image: placeholder,
+    image: shapeImg,
   },
   {
     key: "meso-therapy",
     title: "Meso Therapy",
-    image: placeholder,
+    image: mesoImg,
   },
   {
     key: "booster",
     title: "Booster",
-    image: placeholder,
+    image: boosterImg,
   },
   {
     key: "botox",
     title: "Botox",
-    image: placeholder,
+    image: botoxImg,
   },
   {
     key: "lorient",
     title: "Lorient",
-    image: placeholder,
+    image: lorientImg,
   },
   {
     key: "vaccine",
     title: "Vaccine",
-    image: placeholder,
+    image: vaccineImg,
   },
   {
     key: "biosimulator",
     title: "Biosimulator",
-    image: placeholder,
+    image: bioImg,
   },
   {
     key: "filler",
     title: "Filler",
-    image: placeholder,
+    image: fillerImg,
   },
 ];

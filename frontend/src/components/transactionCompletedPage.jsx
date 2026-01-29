@@ -4,16 +4,23 @@ import { useLocation, useNavigate } from "react-router-dom";
 export default function TransactionCompletedPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const service = location.state?.service;
+  const treatment = location.state?.treatment;
   const booking = location.state?.booking;
-  const payment = location.state?.payment;
 
   const timestamp = useMemo(() => {
-    // keep it deterministic-looking; this is UI-only
-    return "25 May 2025. 12:37:42";
+    const now = new Date();
+    return now.toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
   }, []);
 
-  const amount = payment?.amount ?? service?.price ?? 4160;
+  const treatmentName = treatment?.name ?? "Treatment";
+  const price = treatment?.price ?? 0;
 
   return (
     <section className="bg-[#E6D4B9] px-6 py-14 sm:py-16">
@@ -46,11 +53,24 @@ export default function TransactionCompletedPage() {
 
             <div className="mt-6 rounded-xl bg-[#f8efe7] px-5 py-4 text-left">
               <div className="flex items-center justify-between text-[12px] text-black/70">
-                <span>Total Payment (THB)</span>
-                <span className="font-semibold text-black">{amount}</span>
+                <span>Treatment</span>
+                <span className="font-semibold text-black">{treatmentName}</span>
               </div>
-              <div className="mt-2 text-[11px] text-black/60">
-                Payment: <span className="font-semibold text-black">{payment?.method ?? "SHOPEEPAY"}</span>
+              <div className="mt-2 flex items-center justify-between text-[12px] text-black/70">
+                <span>Total Payment (THB)</span>
+                <span className="font-semibold text-black">{price?.toLocaleString()}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-[12px] text-black/70">
+                <span>Customer</span>
+                <span className="font-semibold text-black">{booking?.name ?? "-"}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-[12px] text-black/70">
+                <span>Date</span>
+                <span className="font-semibold text-black">{booking?.dateBooking ?? "-"}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-[12px] text-black/70">
+                <span>Time</span>
+                <span className="font-semibold text-black">{booking?.timeBooking ?? "-"}</span>
               </div>
             </div>
 
@@ -58,12 +78,12 @@ export default function TransactionCompletedPage() {
               type="button"
               onClick={() =>
                 navigate("/receipt", {
-                  state: { service, booking, payment: { ...payment, amount } },
+                  state: { treatment, booking },
                 })
               }
               className="mt-8 h-11 w-full max-w-xs rounded-md bg-[#a39373] text-[12px] font-semibold uppercase tracking-[0.22em] text-black hover:bg-[#b4a279]"
             >
-              Accept
+              View Receipt
             </button>
           </div>
         </div>
