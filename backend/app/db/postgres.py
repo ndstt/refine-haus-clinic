@@ -24,6 +24,8 @@ class DataBasePool:
             password=config.POSTGRES["password"],
             host=config.POSTGRES["host"],
             port=config.POSTGRES["port"],
+            min_size=1,
+            max_size=5,
         )
         cls._timeout = timeout
 
