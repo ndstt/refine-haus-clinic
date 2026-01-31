@@ -1,5 +1,6 @@
 import logo from "../assets/rhc-logo.png";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useCart } from "../context/CartContext";
 
 const NAV = [
   { key: "home", label: "HOME", to: "/home" },
@@ -10,6 +11,10 @@ const NAV = [
 ];
 
 export default function Header() {
+  const navigate = useNavigate();
+  const { getCartCount } = useCart();
+  const cartCount = getCartCount();
+
   return (
     <header className="w-full bg-white">
       <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center px-6 pb-10 pt-12 sm:pb-12 sm:pt-14">
@@ -51,6 +56,33 @@ export default function Header() {
               {item.label}
             </NavLink>
           ))}
+
+          {/* Cart Icon */}
+          <button
+            type="button"
+            onClick={() => navigate("/cart")}
+            className="relative pb-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="h-5 w-5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"
+              />
+            </svg>
+            {cartCount > 0 && (
+              <span className="absolute -right-2 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#9b7a2f] text-[10px] font-bold text-white">
+                {cartCount}
+              </span>
+            )}
+          </button>
         </nav>
       </div>
     </header>

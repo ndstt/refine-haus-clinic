@@ -1,16 +1,22 @@
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel
 
 
-class BookingRequest(BaseModel):
+class TreatmentItem(BaseModel):
     treatment_id: int
+    price: int
+    quantity: int = 1
+
+
+class BookingRequest(BaseModel):
+    treatments: List[TreatmentItem]
     customer_name: str
     customer_id: Optional[str] = None
     session_date: str
     session_time: str
     note: Optional[str] = None
-    amount: int
+    total_amount: int
 
 
 class BookingResponse(BaseModel):

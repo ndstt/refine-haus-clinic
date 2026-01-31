@@ -4,24 +4,24 @@ import { useLocation, useNavigate } from "react-router-dom";
 export default function ReceiptPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const treatment = location.state?.treatment;
+  const treatments = location.state?.treatments || [];
+  const totalPrice = location.state?.totalPrice || 0;
   const booking = location.state?.booking;
 
   const [invoiceNo, setInvoiceNo] = useState(null);
   const saveAttempted = useRef(false);
 
-  const treatmentName = treatment?.name ?? "Treatment";
-  const treatmentId = treatment?.treatment_id;
-  const price = treatment?.price ?? 0;
   const dateBooking = booking?.dateBooking ?? "-";
   const timeBooking = booking?.timeBooking ?? "-";
   const customerName = booking?.name ?? "-";
   const customerId = booking?.customerId ?? "-";
   const note = booking?.note ?? "";
 
+  const totalItems = treatments.reduce((sum, t) => sum + (t.quantity || 1), 0);
+
   // Save to database on mount (only once)
   useEffect(() => {
-    if (saveAttempted.current || !treatmentId) return;
+    if (saveAttempted.current || treatments.length === 0) return;
     saveAttempted.current = true;
 
     const saveBooking = async () => {
@@ -32,13 +32,17 @@ export default function ReceiptPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            treatment_id: treatmentId,
+            treatments: treatments.map((t) => ({
+              treatment_id: t.treatment_id,
+              price: t.price,
+              quantity: t.quantity || 1,
+            })),
             customer_name: customerName,
             customer_id: customerId,
             session_date: dateBooking,
             session_time: timeBooking,
             note: note,
-            amount: price,
+            total_amount: totalPrice,
           }),
         });
 
@@ -52,7 +56,7 @@ export default function ReceiptPage() {
     };
 
     saveBooking();
-  }, [treatmentId, customerName, customerId, dateBooking, timeBooking, note, price]);
+  }, [treatments, customerName, customerId, dateBooking, timeBooking, note, totalPrice]);
 
   return (
     <section className="bg-[#E6D4B9] px-6 py-14 sm:py-16">
@@ -77,17 +81,31 @@ export default function ReceiptPage() {
                 <thead>
                   <tr className="text-[12px] uppercase tracking-[0.12em] text-black/50">
                     <th className="pb-3 font-semibold">TREATMENT</th>
+                    <th className="pb-3 font-semibold text-center">QTY</th>
                     <th className="pb-3 font-semibold">PRICE</th>
-                    <th className="pb-3 font-semibold">DISC</th>
                     <th className="pb-3 font-semibold">TOTAL</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-t border-black/5">
-                    <td className="py-2">{treatmentName}</td>
-                    <td className="py-2">THB {price?.toLocaleString()}</td>
-                    <td className="py-2">0</td>
-                    <td className="py-2 font-semibold">THB {price?.toLocaleString()}</td>
+                  {treatments.map((item) => {
+                    const qty = item.quantity || 1;
+                    const itemTotal = (item.price || 0) * qty;
+                    return (
+                      <tr key={item.treatment_id} className="border-t border-black/5">
+                        <td className="py-2">{item.name}</td>
+                        <td className="py-2 text-center">{qty}</td>
+                        <td className="py-2">THB {item.price?.toLocaleString()}</td>
+                        <td className="py-2 font-semibold">THB {itemTotal.toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="border-t-2 border-black/20">
+                    <td className="py-3 font-semibold" colSpan={3}>
+                      Total ({totalItems} items)
+                    </td>
+                    <td className="py-3 text-[14px] font-semibold text-[#9b7a2f]">
+                      THB {totalPrice.toLocaleString()}
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -110,10 +128,10 @@ export default function ReceiptPage() {
               </div>
               <div>
                 <div>
-                  <span className="font-semibold text-black/80">Treatment:</span> {treatmentName}
+                  <span className="font-semibold text-black/80">Treatments:</span> {totalItems} item(s)
                 </div>
                 <div className="mt-1">
-                  <span className="font-semibold text-black/80">TOTAL PAYMENT (THB):</span> {price?.toLocaleString()}
+                  <span className="font-semibold text-black/80">TOTAL PAYMENT (THB):</span> {totalPrice.toLocaleString()}
                 </div>
                 <div className="mt-1">
                   <span className="font-semibold text-black/80">Visit type:</span> BOOKING
