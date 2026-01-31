@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { useCart } from "../context/CartContext";
 
 export default function BookingFormPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const treatment = location.state?.treatment;
+  const { cartItems, getCartTotal, getCartCount, clearCart } = useCart();
+  const isNavigatingToSuccess = useRef(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [name, setName] = useState("");
@@ -17,8 +18,14 @@ export default function BookingFormPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isNewCustomer, setIsNewCustomer] = useState(false);
 
-  const treatmentName = treatment?.name ?? "Treatment";
-  const price = treatment?.price ?? 0;
+  const totalPrice = getCartTotal();
+
+  // Redirect to cart if empty (only if not navigating to success)
+  useEffect(() => {
+    if (cartItems.length === 0 && !isNavigatingToSuccess.current) {
+      navigate("/cart");
+    }
+  }, [cartItems, navigate]);
 
   // Search customers when query changes
   useEffect(() => {
@@ -61,9 +68,21 @@ export default function BookingFormPage() {
   };
 
   const handlePayment = () => {
+    // Mark that we're navigating to success (to prevent redirect to cart)
+    isNavigatingToSuccess.current = true;
+
+    // Save cart data before clearing (to pass to success page)
+    const treatmentsData = [...cartItems];
+    const totalPriceData = totalPrice;
+
+    // Clear cart
+    clearCart();
+
+    // Navigate with saved data
     navigate("/success", {
       state: {
-        treatment,
+        treatments: treatmentsData,
+        totalPrice: totalPriceData,
         booking: {
           name,
           customerId,
@@ -74,6 +93,10 @@ export default function BookingFormPage() {
       },
     });
   };
+
+  if (cartItems.length === 0 && !isNavigatingToSuccess.current) {
+    return null;
+  }
 
   return (
     <section className="bg-[#E6D4B9] px-6 py-14 sm:py-16">
@@ -190,32 +213,38 @@ export default function BookingFormPage() {
               </label>
             </div>
 
+            {/* Summary */}
             <div className="rounded-2xl border border-black/10 bg-white px-6 py-6 shadow-sm">
               <div className="text-[12px] font-semibold uppercase tracking-[0.18em] text-black/50">
-                Summary
+                Order Summary
               </div>
-              <div className="mt-2 text-[18px] font-semibold text-black">{treatmentName}</div>
+              <div className="mt-2 text-[14px] font-semibold text-black">
+                {getCartCount()} Treatment{getCartCount() > 1 ? "s" : ""}
+              </div>
 
-              <div className="mt-5 space-y-2 text-[12px] text-black/70">
-                <div className="flex items-center justify-between">
-                  <span>Treatment</span>
-                  <span className="font-semibold text-black">{treatmentName}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Price</span>
-                  <span className="font-semibold text-black">THB {price?.toLocaleString()}</span>
-                </div>
+              <div className="mt-5 max-h-48 space-y-2 overflow-y-auto text-[12px] text-black/70">
+                {cartItems.map((item) => (
+                  <div key={item.treatment_id} className="flex items-center justify-between">
+                    <span className="truncate pr-2">{item.name} x {item.quantity}</span>
+                    <span className="font-semibold text-black">
+                      THB {(item.price * item.quantity).toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 space-y-2 border-t border-black/10 pt-4 text-[12px] text-black/70">
                 {name && (
                   <div className="flex items-center justify-between">
                     <span>Customer</span>
                     <span className="font-semibold text-black">{name}</span>
                   </div>
                 )}
-                <div className="border-t border-black/10 pt-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold">Total</span>
-                    <span className="font-semibold text-[#9b7a2f]">THB {price?.toLocaleString()}</span>
-                  </div>
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-[14px] font-semibold">Total</span>
+                  <span className="text-[18px] font-semibold text-[#9b7a2f]">
+                    THB {totalPrice.toLocaleString()}
+                  </span>
                 </div>
               </div>
 
@@ -226,6 +255,14 @@ export default function BookingFormPage() {
                 className="mt-6 h-11 w-full rounded-md bg-[#a39373] text-[12px] font-semibold uppercase tracking-[0.22em] text-black hover:bg-[#b4a279] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Payment
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate("/cart")}
+                className="mt-3 w-full text-center text-[12px] text-black/60 underline hover:text-black"
+              >
+                Back to Cart
               </button>
             </div>
           </div>

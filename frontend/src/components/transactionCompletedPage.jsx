@@ -4,7 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 export default function TransactionCompletedPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const treatment = location.state?.treatment;
+  const treatments = location.state?.treatments || [];
+  const totalPrice = location.state?.totalPrice || 0;
   const booking = location.state?.booking;
 
   const timestamp = useMemo(() => {
@@ -18,9 +19,6 @@ export default function TransactionCompletedPage() {
       second: "2-digit",
     });
   }, []);
-
-  const treatmentName = treatment?.name ?? "Treatment";
-  const price = treatment?.price ?? 0;
 
   return (
     <section className="bg-[#E6D4B9] px-6 py-14 sm:py-16">
@@ -52,25 +50,46 @@ export default function TransactionCompletedPage() {
             <div className="mt-2 text-[12px] text-black/60">{timestamp}</div>
 
             <div className="mt-6 rounded-xl bg-[#f8efe7] px-5 py-4 text-left">
-              <div className="flex items-center justify-between text-[12px] text-black/70">
-                <span>Treatment</span>
-                <span className="font-semibold text-black">{treatmentName}</span>
+              {/* Treatments List */}
+              <div className="mb-3 text-[12px] font-semibold uppercase text-black/50">
+                Treatments ({treatments.reduce((sum, t) => sum + (t.quantity || 1), 0)})
               </div>
-              <div className="mt-2 flex items-center justify-between text-[12px] text-black/70">
-                <span>Total Payment (THB)</span>
-                <span className="font-semibold text-black">{price?.toLocaleString()}</span>
+              <div className="max-h-32 space-y-2 overflow-y-auto">
+                {treatments.map((item) => (
+                  <div
+                    key={item.treatment_id}
+                    className="flex items-center justify-between text-[12px] text-black/70"
+                  >
+                    <span className="truncate pr-2">{item.name} x {item.quantity || 1}</span>
+                    <span className="font-semibold text-black">
+                      THB {((item.price || 0) * (item.quantity || 1)).toLocaleString()}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <div className="mt-2 flex items-center justify-between text-[12px] text-black/70">
-                <span>Customer</span>
-                <span className="font-semibold text-black">{booking?.name ?? "-"}</span>
+
+              <div className="mt-3 border-t border-black/10 pt-3">
+                <div className="flex items-center justify-between text-[12px] text-black/70">
+                  <span className="font-semibold">Total Payment</span>
+                  <span className="text-[14px] font-semibold text-[#9b7a2f]">
+                    THB {totalPrice.toLocaleString()}
+                  </span>
+                </div>
               </div>
-              <div className="mt-2 flex items-center justify-between text-[12px] text-black/70">
-                <span>Date</span>
-                <span className="font-semibold text-black">{booking?.dateBooking ?? "-"}</span>
-              </div>
-              <div className="mt-2 flex items-center justify-between text-[12px] text-black/70">
-                <span>Time</span>
-                <span className="font-semibold text-black">{booking?.timeBooking ?? "-"}</span>
+
+              <div className="mt-3 border-t border-black/10 pt-3 space-y-2">
+                <div className="flex items-center justify-between text-[12px] text-black/70">
+                  <span>Customer</span>
+                  <span className="font-semibold text-black">{booking?.name ?? "-"}</span>
+                </div>
+                <div className="flex items-center justify-between text-[12px] text-black/70">
+                  <span>Date</span>
+                  <span className="font-semibold text-black">{booking?.dateBooking ?? "-"}</span>
+                </div>
+                <div className="flex items-center justify-between text-[12px] text-black/70">
+                  <span>Time</span>
+                  <span className="font-semibold text-black">{booking?.timeBooking ?? "-"}</span>
+                </div>
               </div>
             </div>
 
@@ -78,7 +97,7 @@ export default function TransactionCompletedPage() {
               type="button"
               onClick={() =>
                 navigate("/receipt", {
-                  state: { treatment, booking },
+                  state: { treatments, totalPrice, booking },
                 })
               }
               className="mt-8 h-11 w-full max-w-xs rounded-md bg-[#a39373] text-[12px] font-semibold uppercase tracking-[0.22em] text-black hover:bg-[#b4a279]"

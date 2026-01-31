@@ -7,6 +7,7 @@ import NotFound from "./components/notFound";
 import CustomerPage from "./components/customerPage";
 import ChatPage from "./components/chatPage";
 import CategoryDetailPage from "./components/categoryDetailPage";
+import CartPage from "./components/cartPage";
 import BookingFormPage from "./components/bookingFormPage";
 import TransactionCompletedPage from "./components/transactionCompletedPage";
 import ReceiptPage from "./components/receiptPage";
@@ -20,6 +21,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/services" replace />} />
           <Route path="/services" element={<ServicePage />} />
           <Route path="/category/:categoryKey" element={<CategoryDetailPage />} />
+          <Route path="/cart" element={<CartPage />} />
           <Route path="/booking" element={<BookingFormPage />} />
           <Route path="/success" element={<TransactionCompletedPage />} />
           <Route path="/receipt" element={<ReceiptPage />} />
