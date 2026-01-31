@@ -56,6 +56,36 @@ ON "supplier"
 FOR EACH ROW
 EXECUTE FUNCTION set_supplier_code();
 
+-- set_promotion_code: auto-generate promotion code from promotion_id and name.
+CREATE OR REPLACE FUNCTION set_promotion_code()
+RETURNS trigger AS $$
+DECLARE
+  name_part text;
+BEGIN
+  IF NEW.promotion_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.code IS NULL OR NEW.code = '' THEN
+    name_part := normalize_code_part(NEW.name);
+    IF name_part IS NULL OR name_part = '' THEN
+      name_part := 'PROMO';
+    END IF;
+    name_part := upper(name_part);
+
+    NEW.code := left('PROMO-' || NEW.promotion_id::text || '-' || name_part, 50);
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_promotion_code
+BEFORE INSERT OR UPDATE OF promotion_id, name
+ON "promotion"
+FOR EACH ROW
+EXECUTE FUNCTION set_promotion_code();
+
 -- set_item_code: auto-generate sku using item_type, name, item_id, and variant.
 CREATE OR REPLACE FUNCTION set_item_code()
 RETURNS trigger AS $$
