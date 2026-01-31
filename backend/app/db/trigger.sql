@@ -537,7 +537,7 @@ FOR EACH ROW
 EXECUTE FUNCTION create_stock_movement_from_purchase_item();
 
 -- STOCK ITEM QUANTITY (item_catalog current_qty)
--- refresh_item_quantity: recompute current_qty from stock_movement * unit_per_package.
+-- refresh_item_quantity: recompute current_qty from stock_movement only.
 CREATE OR REPLACE FUNCTION refresh_item_quantity(target_item_id bigint)
 RETURNS void AS $$
 BEGIN
@@ -547,7 +547,7 @@ BEGIN
 
   UPDATE "item_catalog" ic
   SET current_qty = COALESCE((
-    SELECT SUM(sm.qty * COALESCE(ic.unit_per_package, 1))
+    SELECT SUM(sm.qty)
     FROM "stock_movement" sm
     WHERE sm.item_id = ic.item_id
   ), 0)
