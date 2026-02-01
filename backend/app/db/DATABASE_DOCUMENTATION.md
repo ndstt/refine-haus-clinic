@@ -33,7 +33,7 @@ This document summarizes what each table stores, what it does, and how the main 
 - treatment: Treatment/service master list.
 - treatment_recipe: Items consumed per treatment (`treatment_id` + `item_id`) and their qty per session.
  
-Triggers keep `item_catalog.current_qty` in sync based on `stock_movement.qty * unit_per_package`.
+Triggers keep `item_catalog.current_qty` in sync based on `stock_movement.qty`.
 Daily job stores snapshots in `daily_stock` using movements up to the snapshot date (including OPENING_BALANCE).
 
 ### Procurement

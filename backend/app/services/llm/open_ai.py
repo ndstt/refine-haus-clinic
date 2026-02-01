@@ -25,7 +25,3 @@ class OpenAILLM:
         response = self._client.invoke(prompt)
         content = getattr(response, "content", None)
         return content if content is not None else str(response)
-
-
-# Backwards compatibility: code that still imports MockLLM will now use OpenAI.
-MockLLM = OpenAILLM
