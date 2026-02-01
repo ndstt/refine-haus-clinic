@@ -57,7 +57,7 @@ export default function CustomerDetailPage() {
             to="/customer"
             className="text-[12px] font-semibold text-black/60 hover:text-black"
           >
-             Back to Customer List
+            Back to Customer List
           </Link>
         </div>
 

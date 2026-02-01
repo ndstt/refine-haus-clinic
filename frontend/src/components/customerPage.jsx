@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 export default function CustomerPage() {
   const apiBase =
@@ -175,7 +176,18 @@ export default function CustomerPage() {
               <tbody>
                 {customers.map((row) => (
                   <tr key={row.customer_id} className="border-t border-black/5">
-                    <td className="py-2 whitespace-nowrap">{row.customer_code || "-"}</td>
+                    <td className="py-2 whitespace-nowrap">
+                      {row.customer_id ? (
+                        <Link
+                          to={`/customer/${row.customer_id}`}
+                          className="font-semibold text-[#3e342c] hover:text-black"
+                        >
+                          {row.customer_code || "-"}
+                        </Link>
+                      ) : (
+                        row.customer_code || "-"
+                      )}
+                    </td>
                     <td className="py-2 whitespace-nowrap">{row.full_name || "-"}</td>
                     <td className="py-2 whitespace-nowrap">{row.nickname || "-"}</td>
                     <td className="py-2 whitespace-nowrap">{row.phone || "-"}</td>

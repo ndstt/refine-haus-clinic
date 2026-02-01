@@ -5,6 +5,7 @@ import ServicePage from "./components/servicePage";
 import Footer from "./components/footer";
 import NotFound from "./components/notFound";
 import CustomerPage from "./components/customerPage";
+import CustomerDetailPage from "./components/customerDetailPage";
 import ChatPage from "./components/chatPage";
 import CategoryDetailPage from "./components/categoryDetailPage";
 import CartPage from "./components/cartPage";
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/lumina" element={<ChatPage />} />
           <Route path="/home" element={<NotFound label="Home" />} />
           <Route path="/customer" element={<CustomerPage />} />
+          <Route path="/customer/:customerId" element={<CustomerDetailPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
