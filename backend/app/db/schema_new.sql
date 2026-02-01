@@ -28,7 +28,7 @@ CREATE TABLE public.daily_stock (
 );
 CREATE TABLE public.item_catalog (
   item_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  sku character varying UNIQUE,
+  sku character varying(70) UNIQUE,
   name character varying,
   variant_name character varying,
   sell_price numeric,

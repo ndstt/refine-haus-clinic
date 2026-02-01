@@ -56,6 +56,36 @@ ON "supplier"
 FOR EACH ROW
 EXECUTE FUNCTION set_supplier_code();
 
+-- set_promotion_code: auto-generate promotion code from promotion_id and name.
+CREATE OR REPLACE FUNCTION set_promotion_code()
+RETURNS trigger AS $$
+DECLARE
+  name_part text;
+BEGIN
+  IF NEW.promotion_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.code IS NULL OR NEW.code = '' THEN
+    name_part := normalize_code_part(NEW.name);
+    IF name_part IS NULL OR name_part = '' THEN
+      name_part := 'PROMO';
+    END IF;
+    name_part := upper(name_part);
+
+    NEW.code := left('PROMO-' || NEW.promotion_id::text || '-' || name_part, 50);
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_promotion_code
+BEFORE INSERT OR UPDATE OF promotion_id, name
+ON "promotion"
+FOR EACH ROW
+EXECUTE FUNCTION set_promotion_code();
+
 -- set_item_code: auto-generate sku using item_type, name, item_id, and variant.
 CREATE OR REPLACE FUNCTION set_item_code()
 RETURNS trigger AS $$
@@ -537,7 +567,7 @@ FOR EACH ROW
 EXECUTE FUNCTION create_stock_movement_from_purchase_item();
 
 -- STOCK ITEM QUANTITY (item_catalog current_qty)
--- refresh_item_quantity: recompute current_qty from stock_movement * unit_per_package.
+-- refresh_item_quantity: recompute current_qty from stock_movement only.
 CREATE OR REPLACE FUNCTION refresh_item_quantity(target_item_id bigint)
 RETURNS void AS $$
 BEGIN
@@ -547,7 +577,7 @@ BEGIN
 
   UPDATE "item_catalog" ic
   SET current_qty = COALESCE((
-    SELECT SUM(sm.qty * COALESCE(ic.unit_per_package, 1))
+    SELECT SUM(sm.qty)
     FROM "stock_movement" sm
     WHERE sm.item_id = ic.item_id
   ), 0)

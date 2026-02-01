@@ -190,7 +190,8 @@ async def list_withdraw_items(
     if item_type and item_type != "All":
         filters.append(f"ic.item_type = ${len(values) + 1}")
         values.append(item_type)
-    if movement_type and movement_type != "All":
+    base_filter = "sm.movement_type = 'WITHDRAW'"
+    if movement_type and movement_type != "All" and movement_type != "WITHDRAW":
         filters.append(f"sm.movement_type = ${len(values) + 1}")
         values.append(movement_type)
     if time_from:
@@ -208,7 +209,9 @@ async def list_withdraw_items(
 
     where_clause = " AND ".join(filters)
     if where_clause:
-        where_clause = "WHERE " + where_clause
+        where_clause = f"WHERE {base_filter} AND " + where_clause
+    else:
+        where_clause = f"WHERE {base_filter}"
 
     order_dir = "DESC"
     if isinstance(time_order, str) and time_order.lower() == "asc":
@@ -244,7 +247,7 @@ async def create_withdraw_items(payload: WithdrawBatchRequest) -> WithdrawBatchR
     if not payload.items:
         raise HTTPException(status_code=400, detail="No items provided")
 
-    movement_type = (payload.movement_type or "ADJUST").upper()
+    movement_type = (payload.movement_type or "WITHDRAW").upper()
     if movement_type not in {
         "ADJUST",
         "WITHDRAW",
@@ -270,23 +273,20 @@ async def create_withdraw_items(payload: WithdrawBatchRequest) -> WithdrawBatchR
                     item.item_type,
                 )
                 qty = -abs(float(item.qty))
-                expired_at = item.expire_date
                 await connection.execute(
                     """
                     INSERT INTO stock_movement (
                       created_at,
                       item_id,
                       movement_type,
-                      qty,
-                      expired_at
+                      qty
                     )
-                    VALUES (COALESCE($1, now()), $2, $3, $4, $5)
+                    VALUES (COALESCE($1, now()), $2, $3, $4)
                     """,
                     payload.created_at,
                     resolved_id,
                     movement_type,
                     qty,
-                    expired_at,
                 )
                 inserted += 1
 
