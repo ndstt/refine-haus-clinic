@@ -78,17 +78,12 @@ export default function LuminaPage() {
     []
   );
 
-  const filteredConversations = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return conversations;
-    return conversations.filter((item) =>
-      (item.title || "New chat").toLowerCase().includes(q)
-    );
-  }, [conversations, search]);
+  const activeConversations = useMemo(() => conversations, [conversations]);
 
-  async function loadConversations() {
+  async function loadConversations(nextSearch = "") {
     try {
-      const res = await fetch(`${apiBase}/chat/conversations`);
+      const query = nextSearch ? `?search=${encodeURIComponent(nextSearch)}` : "";
+      const res = await fetch(`${apiBase}/chat/conversations${query}`);
       if (!res.ok) throw new Error(`Request failed (${res.status})`);
       const data = await res.json();
       setConversations(Array.isArray(data) ? data : []);
@@ -117,8 +112,11 @@ export default function LuminaPage() {
   }
 
   useEffect(() => {
-    loadConversations();
-  }, []);
+    const handler = setTimeout(() => {
+      loadConversations(search.trim());
+    }, 250);
+    return () => clearTimeout(handler);
+  }, [search]);
 
   async function onSend() {
     const text = prompt.trim();
@@ -158,7 +156,7 @@ export default function LuminaPage() {
       if (conversationId && conversationId !== activeConversationId) {
         setActiveConversationId(conversationId);
       }
-      await loadConversations();
+      await loadConversations(search.trim());
     } catch (err) {
       setMessages((prev) =>
         prev.slice(0, -1).concat({
@@ -287,8 +285,8 @@ export default function LuminaPage() {
 
                 <div className="pt-3">
                   <div className="px-2 text-[12px] text-black/35">Recents</div>
-                  <div className="mt-3 space-y-2 px-2">
-                    {filteredConversations.map((chat) => (
+                  <div className="mt-3 max-h-[360px] space-y-2 overflow-y-auto px-2 pr-1">
+                    {activeConversations.map((chat) => (
                       <button
                         key={chat.conversation_id}
                         type="button"
