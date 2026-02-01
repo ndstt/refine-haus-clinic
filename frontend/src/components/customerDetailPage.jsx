@@ -11,6 +11,8 @@ export default function CustomerDetailPage() {
   const [treatments, setTreatments] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
 
   const imageBase = useMemo(() => {
     if (!supabaseUrl) return "";
@@ -22,6 +24,8 @@ export default function CustomerDetailPage() {
     let isMounted = true;
     setIsLoading(true);
     setLoadError("");
+    setSelectedYear("");
+    setSelectedMonth("");
 
     fetch(`${apiBase}/resource/customers/${customerId}/treatments`)
       .then((res) => {
@@ -48,6 +52,66 @@ export default function CustomerDetailPage() {
       isMounted = false;
     };
   }, [apiBase, customerId]);
+
+  const monthGroups = useMemo(() => {
+    const groups = new Map();
+    treatments.forEach((row) => {
+      const dateValue = row.session_date ? new Date(row.session_date) : null;
+      if (!dateValue || Number.isNaN(dateValue.getTime())) {
+        return;
+      }
+      const key = `${dateValue.getFullYear()}-${String(
+        dateValue.getMonth() + 1
+      ).padStart(2, "0")}`;
+      if (!groups.has(key)) {
+        groups.set(key, { key, date: dateValue, items: [] });
+      }
+      groups.get(key).items.push(row);
+    });
+
+    const sorted = Array.from(groups.values()).sort(
+      (a, b) => b.date.getTime() - a.date.getTime()
+    );
+
+    sorted.forEach((group) => {
+      group.items.sort((a, b) => {
+        const aTime = a.session_date ? new Date(a.session_date).getTime() : 0;
+        const bTime = b.session_date ? new Date(b.session_date).getTime() : 0;
+        return aTime - bTime;
+      });
+    });
+
+    return sorted;
+  }, [treatments]);
+
+  const yearOptions = useMemo(() => {
+    const years = new Set(monthGroups.map((group) => group.date.getFullYear()));
+    return Array.from(years).sort((a, b) => b - a);
+  }, [monthGroups]);
+
+  const monthOptions = useMemo(() => {
+    if (!selectedYear) return [];
+    const months = monthGroups
+      .filter((group) => group.date.getFullYear() === Number(selectedYear))
+      .map((group) => group.date.getMonth());
+    return Array.from(new Set(months)).sort((a, b) => b - a);
+  }, [monthGroups, selectedYear]);
+
+  useEffect(() => {
+    if (!monthGroups.length) return;
+    const first = monthGroups[0];
+    const year = String(first.date.getFullYear());
+    const month = String(first.date.getMonth());
+    setSelectedYear(year);
+    setSelectedMonth(month);
+  }, [monthGroups]);
+
+  const activeGroup =
+    monthGroups.find(
+      (group) =>
+        String(group.date.getFullYear()) === selectedYear &&
+        String(group.date.getMonth()) === selectedMonth
+    ) ?? null;
 
   return (
     <section className="bg-[#f6eadb] px-6 py-10">
@@ -94,8 +158,57 @@ export default function CustomerDetailPage() {
         </div>
 
         <div className="mt-6 rounded-2xl border border-black/10 bg-white px-6 py-6 shadow-sm">
-          <div className="text-[14px] font-semibold text-black">
-            Treatment History
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-[14px] font-semibold text-black">
+                Treatment History
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-[12px]">
+              <label className="text-black/60">Month</label>
+              <select
+                className="rounded-full border border-black/10 bg-white px-3 py-1 font-semibold text-black/70"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                disabled={!monthGroups.length}
+              >
+                {monthOptions.map((month) => (
+                  <option key={month} value={String(month)}>
+                    {new Date(2000, month, 1).toLocaleDateString("en-US", {
+                      month: "long",
+                    })}
+                  </option>
+                ))}
+              </select>
+              <label className="text-black/60">Year</label>
+              <select
+                className="rounded-full border border-black/10 bg-white px-3 py-1 font-semibold text-black/70"
+                value={selectedYear}
+                onChange={(e) => {
+                  const nextYear = e.target.value;
+                  setSelectedYear(nextYear);
+                  const nextMonths = monthGroups
+                    .filter(
+                      (group) =>
+                        String(group.date.getFullYear()) === nextYear
+                    )
+                    .map((group) => group.date.getMonth());
+                  if (nextMonths.length) {
+                    const newestMonth = Math.max(...nextMonths);
+                    setSelectedMonth(String(newestMonth));
+                  } else {
+                    setSelectedMonth("");
+                  }
+                }}
+                disabled={!monthGroups.length}
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={String(year)}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="mt-4 max-h-[420px] overflow-y-auto overflow-x-auto">
             <table className="w-full text-left text-[12px] text-black/80">
@@ -109,7 +222,7 @@ export default function CustomerDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {treatments.map((row, idx) => (
+                {(activeGroup?.items ?? []).map((row, idx) => (
                   <tr key={`${row.treatment_id}-${idx}`} className="border-t border-black/5">
                     <td className="py-2 whitespace-nowrap">
                       {row.session_date || "-"}
@@ -141,6 +254,16 @@ export default function CustomerDetailPage() {
                       className="py-4 text-center text-[12px] text-black/40"
                     >
                       No treatment history
+                    </td>
+                  </tr>
+                ) : null}
+                {treatments.length && !activeGroup ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="py-4 text-center text-[12px] text-black/40"
+                    >
+                      No treatments for this month
                     </td>
                   </tr>
                 ) : null}
