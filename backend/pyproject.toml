@@ -10,7 +10,10 @@ dependencies = [
   "psycopg2-binary",
   "python-dotenv",
   "langchain_openai",
-  "langchain_community"
+  "langchain_community",
+  "pandas",
+  "mlxtend",
+  "apscheduler"
 ]
 
 [build-system]
