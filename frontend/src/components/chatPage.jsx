@@ -386,8 +386,8 @@ export default function LuminaPage() {
                         key={idx}
                         className={
                           m.role === "user"
-                            ? "ml-auto max-w-[80%] rounded-2xl bg-white px-4 py-2 text-[13px] text-black/75 shadow-sm"
-                            : "mr-auto max-w-[80%] rounded-2xl bg-black/5 px-4 py-2 text-[13px] text-black/70"
+                            ? "ml-auto max-w-[80%] rounded-2xl bg-white px-4 py-2 text-[13px] text-black/75 shadow-sm whitespace-pre-wrap"
+                            : "mr-auto max-w-[80%] rounded-2xl bg-black/5 px-4 py-2 text-[13px] text-black/70 whitespace-pre-wrap"
                         }
                       >
                         {m.text}
