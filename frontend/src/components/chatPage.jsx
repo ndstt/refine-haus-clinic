@@ -172,10 +172,10 @@ export default function LuminaPage() {
       setMessages((prev) =>
         prev.slice(0, -1).concat({
           role: "assistant",
-          text: "Sorry, something went wrong. Please try again.",
+          text: "Unable to process your request. Please try again.",
         })
       );
-      setSendError("Cannot reach backend. Check API or server status.");
+      setSendError("Connection error. Please check your network and try again.");
     } finally {
       setIsSending(false);
     }

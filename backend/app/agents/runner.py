@@ -12,4 +12,4 @@ def run_agent(message: str) -> str:
     except Exception as exc:
         logger.error("SQL Agent error: %s", exc)
         raise
-    return result.get("output", "ขออภัย ไม่สามารถตอบคำถามได้")
+    return result.get("output", "Unable to process your request. Please try again.")
