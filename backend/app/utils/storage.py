@@ -1,6 +1,7 @@
 import os
 from functools import lru_cache
 from typing import Optional
+from urllib.parse import urlparse
 
 import boto3
 from botocore.client import Config
@@ -32,13 +33,42 @@ def _normalize_key(key: str, bucket: str) -> str:
     return key
 
 
+def _strip_endpoint(key: str, endpoint: str, bucket: str) -> Optional[str]:
+    parsed = urlparse(key)
+    if not parsed.scheme or not parsed.netloc:
+        return None
+
+    endpoint_parsed = urlparse(endpoint)
+    if parsed.netloc != endpoint_parsed.netloc:
+        return None
+
+    path = parsed.path.lstrip("/")
+    endpoint_path = endpoint_parsed.path.strip("/")
+    if endpoint_path and path.startswith(endpoint_path + "/"):
+        path = path[len(endpoint_path) + 1 :]
+
+    if path.startswith(f"{bucket}/"):
+        path = path[len(bucket) + 1 :]
+
+    return path or None
+
+
 def build_signed_url(key: Optional[str], expires_in: int = 3600) -> Optional[str]:
     if not key:
         return None
-    if key.startswith("http://") or key.startswith("https://"):
-        return key
 
     bucket = os.getenv("SUPABASE_S3_BUCKET", "treatment")
+    endpoint = os.getenv("SUPABASE_S3_ENDPOINT")
+    if key.startswith("http://") or key.startswith("https://"):
+        if endpoint:
+            stripped = _strip_endpoint(key, endpoint, bucket)
+            if stripped:
+                key = stripped
+            else:
+                return key
+        else:
+            return key
+
     client = _get_s3_client()
     if client is None:
         return None
