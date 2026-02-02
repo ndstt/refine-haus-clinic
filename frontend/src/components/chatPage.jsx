@@ -62,6 +62,17 @@ function SearchIcon() {
   );
 }
 
+function ThinkingDots() {
+  const baseClass = "inline-block h-1.5 w-1.5 rounded-full bg-black/50";
+  return (
+    <span className="inline-flex items-center gap-1" role="status" aria-label="Thinking">
+      <span className={baseClass} style={{ animation: "lumina-dot 1.2s infinite" }} />
+      <span className={baseClass} style={{ animation: "lumina-dot 1.2s infinite 0.2s" }} />
+      <span className={baseClass} style={{ animation: "lumina-dot 1.2s infinite 0.4s" }} />
+    </span>
+  );
+}
+
 export default function LuminaPage() {
   const [collapsed, setCollapsed] = useState(false);
   const [search, setSearch] = useState("");
@@ -185,6 +196,12 @@ export default function LuminaPage() {
 
   return (
     <section className="bg-[#f6eadb] px-6 py-10">
+      <style>{`
+        @keyframes lumina-dot {
+          0%, 80%, 100% { opacity: 0.2; transform: translateY(0); }
+          40% { opacity: 1; transform: translateY(-2px); }
+        }
+      `}</style>
       {/* same layout frame as inventory */}
       <div className="mx-auto flex w-full max-w-[1200px]">
         {/* Sidebar (collapse/expand) */}
@@ -388,7 +405,7 @@ export default function LuminaPage() {
                             : "mr-auto max-w-[80%] rounded-2xl bg-black/5 px-4 py-2 text-[13px] text-black/70 whitespace-pre-wrap"
                         }
                       >
-                        {m.text}
+                        {m.pending ? <ThinkingDots /> : m.text}
                       </div>
                     ))}
                     {sendError ? (
