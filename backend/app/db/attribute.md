@@ -138,7 +138,7 @@ This file explains the purpose of each column in every table. Source: `backend/d
 - session_date: Treatment session date.
 - age_at_session: Age at time of session (optional).
 - note: Session notes (optional).
-- next_appointment_date: Next appointment date (optional).
+- session_time: Time of day for the treatment session (optional).
 
 ## promotion_benefit
 - promotion_benefit_id: Primary key.

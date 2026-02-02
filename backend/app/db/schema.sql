@@ -251,9 +251,9 @@ CREATE TABLE "treatment_session" (
   "sell_invoice_id" bigint REFERENCES "sell_invoice" ("sell_invoice_id") ON DELETE CASCADE,
   "customer_id" bigint REFERENCES "customer" ("customer_id"),
   "session_date" date NOT NULL,
+  "session_time" time,
   "age_at_session" int,
   "note" varchar,
-  "next_appointment_date" date,
   PRIMARY KEY ("treatment_id", "sell_invoice_id")
 );
 CREATE INDEX idx_tsession_invoice ON treatment_session (sell_invoice_id);

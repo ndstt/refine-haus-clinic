@@ -1,9 +1,110 @@
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 
 export default function CartPage() {
   const navigate = useNavigate();
-  const { cartItems, removeFromCart, getCartTotal, getCartCount, clearCart, incrementQuantity, decrementQuantity } = useCart();
+  const apiBase =
+    import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api/v1";
+  const {
+    cartItems,
+    removeFromCart,
+    getCartTotal,
+    getCartCount,
+    clearCart,
+    incrementQuantity,
+    decrementQuantity,
+  } = useCart();
+  const [promotionBundles, setPromotionBundles] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch(`${apiBase}/promotion/bundles`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load promotions");
+        return res.json();
+      })
+      .then((data) => {
+        if (!isMounted) return;
+        setPromotionBundles(Array.isArray(data?.promotions) ? data.promotions : []);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setPromotionBundles([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [apiBase]);
+
+  const cartById = useMemo(() => {
+    const map = new Map();
+    cartItems.forEach((item) => {
+      map.set(item.treatment_id, item);
+    });
+    return map;
+  }, [cartItems]);
+
+  const appliedPromotions = useMemo(() => {
+    const availability = new Map();
+    cartItems.forEach((item) => {
+      availability.set(item.treatment_id, item.quantity || 0);
+    });
+
+    const promos = [...promotionBundles].sort(
+      (a, b) => (b.discount_percent || 0) - (a.discount_percent || 0)
+    );
+
+    const applied = [];
+    promos.forEach((promo) => {
+      const treatments = Array.isArray(promo.treatments) ? promo.treatments : [];
+      if (!treatments.length) return;
+      const canApply = treatments.every(
+        (t) => (availability.get(t.treatment_id) || 0) > 0
+      );
+      if (!canApply) return;
+      treatments.forEach((t) => {
+        availability.set(t.treatment_id, (availability.get(t.treatment_id) || 0) - 1);
+      });
+      applied.push(promo);
+    });
+
+    return applied;
+  }, [cartItems, promotionBundles]);
+
+  const promotionTotals = useMemo(() => {
+    const format = (promo) => {
+      const treatments = Array.isArray(promo.treatments) ? promo.treatments : [];
+      const items = treatments.map((t) => {
+        const cartItem = cartById.get(t.treatment_id);
+        return {
+          ...t,
+          name: cartItem?.name ?? t.name,
+          price: cartItem?.price ?? t.price ?? 0,
+        };
+      });
+      const originalTotal = items.reduce((sum, item) => sum + (item.price || 0), 0);
+      const discountPercent = Number(promo.discount_percent || 0);
+      const discountAmount = originalTotal * (discountPercent / 100);
+      const discountedTotal = Math.max(0, originalTotal - discountAmount);
+      return {
+        ...promo,
+        displayItems: items,
+        originalTotal,
+        discountedTotal,
+        discountAmount,
+      };
+    };
+    return appliedPromotions.map(format);
+  }, [appliedPromotions, cartById]);
+
+  const cartBaseTotal = getCartTotal();
+  const totalDiscount = promotionTotals.reduce(
+    (sum, promo) => sum + (promo.discountAmount || 0),
+    0
+  );
+  const cartFinalTotal = Math.max(0, cartBaseTotal - totalDiscount);
 
   const handleCheckout = () => {
     if (cartItems.length === 0) return;
@@ -92,6 +193,43 @@ export default function CartPage() {
                   </div>
                 ))}
 
+                {promotionTotals.length > 0 && (
+                  <div className="rounded-2xl border border-[#eadcc7] bg-[#fff7ee] px-6 py-5 shadow-sm">
+                    <div className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[#9b7a2f]">
+                      Promotions Applied
+                    </div>
+                    <div className="mt-4 space-y-4">
+                      {promotionTotals.map((promo) => (
+                        <div
+                          key={`promo-${promo.promotion_id}`}
+                          className="rounded-xl border border-black/10 bg-white px-4 py-4"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="min-w-[220px] flex-1">
+                              <div className="font-luxury text-[16px] text-black">
+                                {promo.name || promo.code || "Promotion"}
+                              </div>
+                              <div className="mt-1 space-y-1 text-[12px] text-black/60">
+                                {promo.displayItems.map((t) => (
+                                  <div key={t.treatment_id}>{t.name}</div>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-[12px] text-black/40 line-through">
+                                THB {promo.originalTotal.toLocaleString()}
+                              </div>
+                              <div className="text-[14px] font-semibold text-[#9b7a2f]">
+                                THB {promo.discountedTotal.toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Clear Cart Button */}
                 <div className="flex justify-between pt-4">
                   <button
@@ -129,11 +267,37 @@ export default function CartPage() {
                     </div>
                   ))}
 
+                  {promotionTotals.length > 0 && (
+                    <div className="border-t border-black/10 pt-3 mt-3 space-y-2">
+                      {promotionTotals.map((promo) => (
+                        <div
+                          key={`summary-${promo.promotion_id}`}
+                          className="flex items-center justify-between text-[12px]"
+                        >
+                          <span className="truncate pr-2">
+                            {promo.name || promo.code || "Promotion"}
+                          </span>
+                          <span className="font-semibold text-[#9b7a2f]">
+                            -THB {promo.discountAmount.toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="border-t border-black/10 pt-3 mt-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-[14px] font-semibold">Total ({getCartCount()} items)</span>
+                      <span className="text-[12px] text-black/60">Original Total</span>
+                      <span className="text-[14px] font-semibold text-black">
+                        THB {cartBaseTotal.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-[14px] font-semibold">
+                        Total ({getCartCount()} items)
+                      </span>
                       <span className="text-[18px] font-semibold text-[#9b7a2f]">
-                        THB {getCartTotal().toLocaleString()}
+                        THB {cartFinalTotal.toLocaleString()}
                       </span>
                     </div>
                   </div>

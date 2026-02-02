@@ -34,7 +34,7 @@ async def list_categories() -> TreatmentCategoryListResponse:
         TreatmentCategory(
             category=row["category"],
             image_obj_key=row["image_obj_key"],
-            image_url=build_signed_url(row["image_obj_key"]),
+            image_url=build_signed_url(row["image_obj_key"], bucket="treatment"),
         )
         for row in rows
     ]
