@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
+import rhcLogo from "../assets/rhc-logo.png";
 import { useCart } from "../context/CartContext";
 
 const NAV = [
@@ -20,8 +21,12 @@ export default function Header() {
     <header className="w-full bg-white">
       <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center px-6 pb-10 pt-12 sm:pb-12 sm:pt-14">
         <div className="flex items-center justify-center gap-5 sm:gap-6">
-          <div className="grid h-16 w-16 place-items-center rounded-full bg-[#b9ab93] text-[10px] font-semibold uppercase tracking-[0.2em] text-white sm:h-20 sm:w-20 sm:text-[12px]">
-            RHC
+          <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-[#b9ab93] sm:h-20 sm:w-20">
+            <img
+              src={rhcLogo}
+              alt="Refine Haus Clinic"
+              className="h-full w-full object-cover"
+            />
           </div>
 
           <div className="font-luxury text-left uppercase leading-[0.98] tracking-[0.18em] text-black">
