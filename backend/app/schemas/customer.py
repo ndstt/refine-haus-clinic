@@ -44,9 +44,9 @@ class CustomerTreatmentRow(BaseModel):
     image_obj_key: Optional[str] = None
     image_url: Optional[str] = None
     session_date: Optional[date] = None
+    session_time: Optional[str] = None
     age_at_session: Optional[int] = None
     note: Optional[str] = None
-    next_appointment_date: Optional[date] = None
     sell_invoice_id: Optional[int] = None
 
 

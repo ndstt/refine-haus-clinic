@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 export default function ReceiptPage() {
@@ -6,10 +6,11 @@ export default function ReceiptPage() {
   const location = useLocation();
   const treatments = location.state?.treatments || [];
   const totalPrice = location.state?.totalPrice || 0;
+  const originalTotal = location.state?.originalTotal ?? totalPrice;
+  const discountTotal = location.state?.discountTotal ?? 0;
   const booking = location.state?.booking;
 
-  const [invoiceNo, setInvoiceNo] = useState(null);
-  const saveAttempted = useRef(false);
+  const [invoiceNo] = useState(location.state?.invoiceNo ?? null);
 
   const dateBooking = booking?.dateBooking ?? "-";
   const timeBooking = booking?.timeBooking ?? "-";
@@ -18,45 +19,6 @@ export default function ReceiptPage() {
   const note = booking?.note ?? "";
 
   const totalItems = treatments.reduce((sum, t) => sum + (t.quantity || 1), 0);
-
-  // Save to database on mount (only once)
-  useEffect(() => {
-    if (saveAttempted.current || treatments.length === 0) return;
-    saveAttempted.current = true;
-
-    const saveBooking = async () => {
-      try {
-        const response = await fetch("http://localhost:8000/api/v1/booking", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            treatments: treatments.map((t) => ({
-              treatment_id: t.treatment_id,
-              price: t.price,
-              quantity: t.quantity || 1,
-            })),
-            customer_name: customerName,
-            customer_id: customerId,
-            session_date: dateBooking,
-            session_time: timeBooking,
-            note: note,
-            total_amount: totalPrice,
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setInvoiceNo(data.invoice_no);
-        }
-      } catch (error) {
-        console.error("Failed to save booking:", error);
-      }
-    };
-
-    saveBooking();
-  }, [treatments, customerName, customerId, dateBooking, timeBooking, note, totalPrice]);
 
   return (
     <section className="bg-[#E6D4B9] px-6 py-14 sm:py-16">
@@ -101,10 +63,28 @@ export default function ReceiptPage() {
                   })}
                   <tr className="border-t-2 border-black/20">
                     <td className="py-3 font-semibold" colSpan={3}>
-                      Total ({totalItems} items)
+                      Original Total ({totalItems} items)
+                    </td>
+                    <td className="py-3 text-[14px] font-semibold text-black">
+                      THB {Number(originalTotal || 0).toLocaleString()}
+                    </td>
+                  </tr>
+                  {discountTotal > 0 && (
+                    <tr>
+                      <td className="py-2 font-semibold" colSpan={3}>
+                        Discount
+                      </td>
+                      <td className="py-2 text-[14px] font-semibold text-[#9b7a2f]">
+                        -THB {Number(discountTotal || 0).toLocaleString()}
+                      </td>
+                    </tr>
+                  )}
+                  <tr className="border-t border-black/10">
+                    <td className="py-3 font-semibold" colSpan={3}>
+                      Total Payment
                     </td>
                     <td className="py-3 text-[14px] font-semibold text-[#9b7a2f]">
-                      THB {totalPrice.toLocaleString()}
+                      THB {Number(totalPrice || 0).toLocaleString()}
                     </td>
                   </tr>
                 </tbody>
@@ -131,7 +111,15 @@ export default function ReceiptPage() {
                   <span className="font-semibold text-black/80">Treatments:</span> {totalItems} item(s)
                 </div>
                 <div className="mt-1">
-                  <span className="font-semibold text-black/80">TOTAL PAYMENT (THB):</span> {totalPrice.toLocaleString()}
+                  <span className="font-semibold text-black/80">ORIGINAL TOTAL (THB):</span> {Number(originalTotal || 0).toLocaleString()}
+                </div>
+                {discountTotal > 0 && (
+                  <div className="mt-1">
+                    <span className="font-semibold text-black/80">DISCOUNT (THB):</span> -{Number(discountTotal || 0).toLocaleString()}
+                  </div>
+                )}
+                <div className="mt-1">
+                  <span className="font-semibold text-black/80">TOTAL PAYMENT (THB):</span> {Number(totalPrice || 0).toLocaleString()}
                 </div>
                 <div className="mt-1">
                   <span className="font-semibold text-black/80">Visit type:</span> BOOKING

@@ -196,6 +196,7 @@ CREATE TABLE public.treatment_session (
   sell_invoice_id bigint NOT NULL,
   customer_id bigint,
   session_date date NOT NULL,
+  session_time time,
   age_at_session integer,
   note character varying,
   session_time time without time zone,

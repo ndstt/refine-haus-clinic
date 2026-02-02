@@ -13,6 +13,7 @@ class BookingRequest(BaseModel):
     treatments: List[TreatmentItem]
     customer_name: str
     customer_id: Optional[str] = None
+    promotions: List[int] = []
     session_date: str
     session_time: str
     note: Optional[str] = None
