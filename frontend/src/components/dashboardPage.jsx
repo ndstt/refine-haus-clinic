@@ -15,22 +15,19 @@ function formatCurrency(value) {
 function formatTime(dateString) {
   if (!dateString) return "-";
   const d = new Date(dateString);
-  return d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
 function formatDate(dateString) {
   if (!dateString) return "-";
   const d = new Date(dateString);
-  return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  return d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
 }
 
-function StatsCard({ icon, label, value, subValue, subColor }) {
+function StatsCard({ label, value, subValue, subColor }) {
   return (
-    <div className="flex flex-col rounded-xl border border-black/10 bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-2 text-sm text-black/50">
-        <span>{icon}</span>
-        <span>{label}</span>
-      </div>
+    <div className="flex flex-col rounded-xl border-2 border-black/10 bg-white p-5 shadow-sm">
+      <div className="text-sm text-black/50">{label}</div>
       <div className="mt-2 text-2xl font-semibold text-black">{value}</div>
       {subValue && (
         <div className={`mt-1 text-xs ${subColor || "text-black/40"}`}>
@@ -43,7 +40,7 @@ function StatsCard({ icon, label, value, subValue, subColor }) {
 
 function SectionCard({ title, children, className = "" }) {
   return (
-    <div className={`rounded-xl border border-black/10 bg-white p-5 shadow-sm ${className}`}>
+    <div className={`rounded-xl border-2 border-black/10 bg-white p-5 shadow-sm ${className}`}>
       <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-black/60">
         {title}
       </h3>
@@ -57,7 +54,7 @@ function RevenueChart({ data }) {
   const chartRef = useRef(null);
 
   if (!data || data.length === 0) {
-    return <div className="text-center text-black/40">ไม่มีข้อมูล</div>;
+    return <div className="text-center text-black/40">No data available</div>;
   }
 
   const amounts = data.map((d) => Number(d.amount) || 0);
@@ -75,7 +72,6 @@ function RevenueChart({ data }) {
     return { x, y, amount: Number(item.amount) || 0, date: item.date, idx };
   });
 
-  // Smooth curve path using cardinal spline
   const createSmoothPath = (pts) => {
     if (pts.length < 2) return "";
     if (pts.length === 2) return `M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y}`;
@@ -100,7 +96,6 @@ function RevenueChart({ data }) {
   const linePath = createSmoothPath(points);
   const areaPath = `${linePath} L ${points[points.length - 1].x} ${padding.top + chartHeight} L ${points[0].x} ${padding.top + chartHeight} Z`;
 
-  // Show labels
   const labelIndices = data.length <= 7
     ? data.map((_, i) => i)
     : [0, Math.floor(data.length / 2), data.length - 1];
@@ -117,7 +112,6 @@ function RevenueChart({ data }) {
           </linearGradient>
         </defs>
 
-        {/* Grid lines */}
         {[0.25, 0.5, 0.75].map((ratio) => (
           <line
             key={ratio}
@@ -130,10 +124,8 @@ function RevenueChart({ data }) {
           />
         ))}
 
-        {/* Area fill */}
         <path d={areaPath} fill="url(#areaGradient)" />
 
-        {/* Line */}
         <path
           d={linePath}
           fill="none"
@@ -143,7 +135,6 @@ function RevenueChart({ data }) {
           strokeLinejoin="round"
         />
 
-        {/* Active vertical line */}
         {activePoint && (
           <line
             x1={activePoint.x}
@@ -157,7 +148,6 @@ function RevenueChart({ data }) {
           />
         )}
 
-        {/* Hover areas (invisible, larger hit targets) */}
         {points.map((p, idx) => (
           <circle
             key={`hover-${idx}`}
@@ -172,7 +162,6 @@ function RevenueChart({ data }) {
           />
         ))}
 
-        {/* Visible points - only show active or on hover */}
         {points.map((p, idx) => (
           <circle
             key={idx}
@@ -187,7 +176,6 @@ function RevenueChart({ data }) {
           />
         ))}
 
-        {/* X-axis labels */}
         {labelIndices.map((idx) => (
           <text
             key={idx}
@@ -196,12 +184,11 @@ function RevenueChart({ data }) {
             textAnchor="middle"
             className="fill-black/40 text-[10px]"
           >
-            {new Date(data[idx].date).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
+            {new Date(data[idx].date).toLocaleDateString("en-US", { day: "numeric", month: "short" })}
           </text>
         ))}
       </svg>
 
-      {/* Tooltip */}
       {activePoint && (
         <div
           className="pointer-events-none absolute z-10 -translate-x-1/2 rounded-lg border border-black/10 bg-white/95 px-3 py-2 shadow-md backdrop-blur-sm"
@@ -212,7 +199,7 @@ function RevenueChart({ data }) {
           }}
         >
           <div className="whitespace-nowrap text-[11px] text-black/50">
-            {new Date(activePoint.date).toLocaleDateString("th-TH", {
+            {new Date(activePoint.date).toLocaleDateString("en-US", {
               weekday: "short",
               day: "numeric",
               month: "short",
@@ -229,7 +216,7 @@ function RevenueChart({ data }) {
 
 function AppointmentsList({ appointments }) {
   if (!appointments || appointments.length === 0) {
-    return <div className="text-center text-black/40">ไม่มีนัดหมายวันนี้</div>;
+    return <div className="text-center text-black/40">No appointments scheduled</div>;
   }
 
   return (
@@ -244,15 +231,17 @@ function AppointmentsList({ appointments }) {
               {formatTime(apt.appointment_time)}
             </span>
             <span className="text-sm text-black">
-              {apt.customer_name || "ไม่ระบุชื่อ"}
+              {apt.customer_name || "Unknown"}
             </span>
           </div>
-          <span>
-            {apt.appointment_status === "COMPLETE" ? (
-              <span className="text-green-600">✅</span>
-            ) : (
-              <span className="text-yellow-500">🟡</span>
-            )}
+          <span
+            className={`rounded px-2 py-0.5 text-xs font-medium ${
+              apt.appointment_status === "COMPLETE"
+                ? "bg-green-100 text-green-700"
+                : "bg-yellow-100 text-yellow-700"
+            }`}
+          >
+            {apt.appointment_status === "COMPLETE" ? "Complete" : "Pending"}
           </span>
         </div>
       ))}
@@ -260,61 +249,151 @@ function AppointmentsList({ appointments }) {
   );
 }
 
-function TopTreatmentsList({ treatments }) {
+const PIE_COLORS = [
+  "#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6",
+  "#ec4899", "#14b8a6", "#f97316", "#06b6d4", "#84cc16"
+];
+
+function TreatmentsPieChart({ treatments }) {
   if (!treatments || treatments.length === 0) {
-    return <div className="text-center text-black/40">ไม่มีข้อมูล</div>;
+    return <div className="text-center text-black/40 py-8">No data available</div>;
   }
 
+  const total = treatments.reduce((sum, t) => sum + t.count, 0);
+  const size = 140;
+  const center = size / 2;
+  const radius = 55;
+
+  let currentAngle = -90;
+  const slices = treatments.map((t, idx) => {
+    const percentage = (t.count / total) * 100;
+    const angle = (percentage / 100) * 360;
+    const startAngle = currentAngle;
+    const endAngle = currentAngle + angle;
+    currentAngle = endAngle;
+
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = (endAngle * Math.PI) / 180;
+    const x1 = center + radius * Math.cos(startRad);
+    const y1 = center + radius * Math.sin(startRad);
+    const x2 = center + radius * Math.cos(endRad);
+    const y2 = center + radius * Math.sin(endRad);
+    const largeArc = angle > 180 ? 1 : 0;
+
+    const path = `M ${center} ${center} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+
+    return {
+      ...t,
+      percentage,
+      path,
+      color: PIE_COLORS[idx % PIE_COLORS.length],
+    };
+  });
+
   return (
-    <div className="flex flex-col gap-2">
-      {treatments.map((t, idx) => (
-        <div
-          key={t.treatment_id}
-          className="flex items-center justify-between rounded-lg bg-black/[0.02] px-3 py-2"
-        >
-          <div className="flex items-center gap-3">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#b9ab93] text-xs font-semibold text-white">
-              {idx + 1}
-            </span>
-            <span className="text-sm text-black">{t.treatment_name}</span>
-          </div>
-          <span className="text-sm font-medium text-black/60">{t.count} ครั้ง</span>
+    <div className="flex items-start gap-4">
+      <div className="flex-shrink-0">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          {slices.map((slice, idx) => (
+            <path
+              key={idx}
+              d={slice.path}
+              fill={slice.color}
+              stroke="white"
+              strokeWidth="1"
+              className="transition-opacity hover:opacity-80"
+            >
+              <title>{`${slice.treatment_name}: ${slice.count} sessions (${slice.percentage.toFixed(1)}%)`}</title>
+            </path>
+          ))}
+          <circle cx={center} cy={center} r="30" fill="white" />
+          <text x={center} y={center - 5} textAnchor="middle" className="text-lg font-bold fill-black">
+            {total}
+          </text>
+          <text x={center} y={center + 10} textAnchor="middle" className="text-[9px] fill-black/50">
+            sessions
+          </text>
+        </svg>
+      </div>
+
+      <div className="flex-1 max-h-36 overflow-y-auto">
+        <div className="flex flex-col gap-1.5">
+          {slices.map((slice, idx) => (
+            <div key={idx} className="flex items-center gap-2 text-xs">
+              <span
+                className="h-3 w-3 flex-shrink-0 rounded-sm"
+                style={{ backgroundColor: slice.color }}
+              />
+              <span className="flex-1 truncate text-black/70" title={slice.treatment_name}>
+                {slice.treatment_name}
+              </span>
+              <span className="font-medium text-black">
+                {slice.count} <span className="text-black/50">({slice.percentage.toFixed(1)}%)</span>
+              </span>
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
     </div>
   );
 }
 
-function PromotionsList({ promotions }) {
-  if (!promotions || promotions.length === 0) {
-    return <div className="text-center text-black/40">ไม่มีข้อมูล</div>;
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      {promotions.map((p) => (
-        <div
-          key={p.promotion_id}
-          className="flex items-center justify-between rounded-lg bg-black/[0.02] px-3 py-2"
-        >
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-black">
-              {p.promotion_code || p.promotion_name || "ไม่ระบุ"}
-            </span>
-            <span className="text-xs text-black/40">
-              {formatCurrency(-p.total_discount)}
-            </span>
-          </div>
-          <span className="text-sm text-black/60">{p.usage_count} ครั้ง</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function OutOfStockTable({ items }) {
+function ExpiringItemsList({ items, expiringSoon }) {
   if (!items || items.length === 0) {
-    return <div className="text-center text-black/40">ไม่มีสินค้าหมด</div>;
+    return <div className="text-center text-black/40">No expiring items</div>;
+  }
+
+  const getStatusStyle = (daysUntil) => {
+    if (daysUntil <= 7) return "bg-red-100 text-red-700";
+    if (daysUntil <= 30) return "bg-yellow-100 text-yellow-700";
+    return "bg-green-100 text-green-700";
+  };
+
+  const getStatusText = (daysUntil) => {
+    if (daysUntil === 0) return "Expires today";
+    if (daysUntil === 1) return "1 day left";
+    return `${daysUntil} days left`;
+  };
+
+  return (
+    <div>
+      <div className="mb-3 text-xs">
+        <span className="rounded bg-yellow-100 px-2 py-1 text-yellow-700">
+          Expiring within 30 days: {expiringSoon}
+        </span>
+      </div>
+      <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+        {items.map((item, idx) => (
+          <div
+            key={`${item.item_id}-${idx}`}
+            className="flex items-center justify-between rounded-lg bg-black/[0.02] px-3 py-2"
+          >
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-black">
+                {item.name || "-"}
+              </span>
+              <span className="text-xs text-black/40">
+                {item.sku} {item.variant_name ? `• ${item.variant_name}` : ""}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {item.qty != null && (
+                <span className="text-xs text-black/50">{item.qty} pcs</span>
+              )}
+              <span className={`rounded px-2 py-1 text-xs font-medium ${getStatusStyle(item.days_until_expire)}`}>
+                {getStatusText(item.days_until_expire)}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DailyStockTable({ items }) {
+  if (!items || items.length === 0) {
+    return <div className="text-center text-black/40">No stock data available</div>;
   }
 
   return (
@@ -323,10 +402,10 @@ function OutOfStockTable({ items }) {
         <thead className="sticky top-0 bg-white">
           <tr className="border-b border-black/10 text-left text-xs text-black/50">
             <th className="pb-2 font-medium">SKU</th>
-            <th className="pb-2 font-medium">ชื่อ</th>
+            <th className="pb-2 font-medium">Name</th>
             <th className="pb-2 font-medium">Variant</th>
-            <th className="pb-2 text-right font-medium">คงเหลือ</th>
-            <th className="pb-2 text-center font-medium">สถานะ</th>
+            <th className="pb-2 text-right font-medium">Stock</th>
+            <th className="pb-2 text-right font-medium">Change</th>
           </tr>
         </thead>
         <tbody>
@@ -335,13 +414,17 @@ function OutOfStockTable({ items }) {
               <td className="py-2 text-black/60">{item.sku || "-"}</td>
               <td className="py-2 text-black">{item.name || "-"}</td>
               <td className="py-2 text-black/60">{item.variant_name || "-"}</td>
-              <td className="py-2 text-right font-medium text-red-600">
-                {item.current_qty}
+              <td className={`py-2 text-right font-medium ${item.qty <= 0 ? "text-red-600" : item.qty <= 10 ? "text-yellow-600" : "text-green-600"}`}>
+                {item.qty}
               </td>
-              <td className="py-2 text-center">
-                <span className="rounded bg-red-100 px-2 py-0.5 text-xs text-red-700">
-                  🔴 หมด
-                </span>
+              <td className="py-2 text-right">
+                {item.change != null ? (
+                  <span className={`text-xs font-medium ${item.change > 0 ? "text-green-600" : item.change < 0 ? "text-red-600" : "text-black/40"}`}>
+                    {item.change > 0 ? `+${item.change}` : item.change === 0 ? "0" : item.change}
+                  </span>
+                ) : (
+                  <span className="text-xs text-black/30">-</span>
+                )}
               </td>
             </tr>
           ))}
@@ -353,7 +436,7 @@ function OutOfStockTable({ items }) {
 
 function CompletedTodayTable({ items, totalCount, totalAmount }) {
   if (!items || items.length === 0) {
-    return <div className="text-center text-black/40">ไม่มีรายการวันนี้</div>;
+    return <div className="text-center text-black/40">No transactions</div>;
   }
 
   return (
@@ -362,11 +445,11 @@ function CompletedTodayTable({ items, totalCount, totalAmount }) {
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-white">
             <tr className="border-b border-black/10 text-left text-xs text-black/50">
-              <th className="pb-2 font-medium">เวลา</th>
-              <th className="pb-2 font-medium">ลูกค้า</th>
+              <th className="pb-2 font-medium">Time</th>
+              <th className="pb-2 font-medium">Customer</th>
               <th className="pb-2 font-medium">Treatment</th>
-              <th className="pb-2 text-right font-medium">ราคา</th>
-              <th className="pb-2 text-center font-medium">สถานะ</th>
+              <th className="pb-2 text-right font-medium">Amount</th>
+              <th className="pb-2 text-center font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -379,7 +462,7 @@ function CompletedTodayTable({ items, totalCount, totalAmount }) {
                   {formatCurrency(item.final_amount)}
                 </td>
                 <td className="py-2 text-center">
-                  <span className="text-green-600">✅ PAID</span>
+                  <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Paid</span>
                 </td>
               </tr>
             ))}
@@ -387,7 +470,7 @@ function CompletedTodayTable({ items, totalCount, totalAmount }) {
         </table>
       </div>
       <div className="flex justify-end gap-4 border-t border-black/20 pt-3 text-sm">
-        <span className="font-semibold text-black">รวมวันนี้: {totalCount} รายการ</span>
+        <span className="font-semibold text-black">Total: {totalCount} transactions</span>
         <span className="font-semibold text-[#9b7a2f]">{formatCurrency(totalAmount)}</span>
       </div>
     </div>
@@ -404,10 +487,11 @@ export default function DashboardPage() {
   const [revenueChart, setRevenueChart] = useState(null);
   const [appointments, setAppointments] = useState(null);
   const [topTreatments, setTopTreatments] = useState(null);
-  const [promotionsUsed, setPromotionsUsed] = useState(null);
-  const [outOfStock, setOutOfStock] = useState(null);
+  const [expiringItems, setExpiringItems] = useState(null);
+  const [dailyStock, setDailyStock] = useState(null);
   const [completedToday, setCompletedToday] = useState(null);
   const [chartDays, setChartDays] = useState(7);
+  const [treatmentPeriod, setTreatmentPeriod] = useState("month");
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(getTodayString());
 
@@ -418,21 +502,21 @@ export default function DashboardPage() {
       setLoading(true);
       const dateParam = `target_date=${selectedDate}`;
       try {
-        const [statsRes, apptRes, treatRes, promoRes, stockRes, completedRes] =
+        const [statsRes, apptRes, treatRes, expiringRes, stockRes, completedRes] =
           await Promise.all([
             fetch(`${apiBase}/dashboard/stats?${dateParam}`),
             fetch(`${apiBase}/dashboard/appointments?${dateParam}`),
-            fetch(`${apiBase}/dashboard/top-treatments?${dateParam}`),
-            fetch(`${apiBase}/dashboard/promotions-used?${dateParam}`),
-            fetch(`${apiBase}/dashboard/out-of-stock`),
+            fetch(`${apiBase}/dashboard/top-treatments?${dateParam}&period=${treatmentPeriod}`),
+            fetch(`${apiBase}/dashboard/expiring-items?${dateParam}`),
+            fetch(`${apiBase}/dashboard/daily-stock?${dateParam}`),
             fetch(`${apiBase}/dashboard/completed-today?${dateParam}`),
           ]);
 
         if (statsRes.ok) setStats(await statsRes.json());
         if (apptRes.ok) setAppointments(await apptRes.json());
         if (treatRes.ok) setTopTreatments(await treatRes.json());
-        if (promoRes.ok) setPromotionsUsed(await promoRes.json());
-        if (stockRes.ok) setOutOfStock(await stockRes.json());
+        if (expiringRes.ok) setExpiringItems(await expiringRes.json());
+        if (stockRes.ok) setDailyStock(await stockRes.json());
         if (completedRes.ok) setCompletedToday(await completedRes.json());
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
@@ -440,7 +524,7 @@ export default function DashboardPage() {
       setLoading(false);
     }
     fetchData();
-  }, [selectedDate]);
+  }, [selectedDate, treatmentPeriod]);
 
   useEffect(() => {
     async function fetchChart() {
@@ -456,28 +540,25 @@ export default function DashboardPage() {
     fetchChart();
   }, [chartDays, selectedDate]);
 
-  const today = new Date().toLocaleDateString("th-TH", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="text-black/40">กำลังโหลด...</div>
-      </div>
+      <section className="min-h-screen bg-[#f6eadb]">
+        <div className="flex min-h-[400px] items-center justify-center">
+          <div className="text-black/40">Loading...</div>
+        </div>
+      </section>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] px-6 py-8">
+    <section className="min-h-screen bg-[#f6eadb] px-6 py-8">
+      <div className="mx-auto w-full max-w-[1200px]">
       {/* Header */}
       <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-black">Dashboard</h1>
           <p className="text-sm text-black/50">
-            {isToday ? "ภาพรวมธุรกิจวันนี้" : "ข้อมูลย้อนหลัง"}
+            {isToday ? "Today's business overview" : "Historical data"}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -485,6 +566,7 @@ export default function DashboardPage() {
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
+            min="2024-01-01"
             max={getTodayString()}
             className="rounded-lg border border-black/20 px-3 py-2 text-sm focus:border-[#b9ab93] focus:outline-none focus:ring-1 focus:ring-[#b9ab93]"
           />
@@ -493,7 +575,7 @@ export default function DashboardPage() {
               onClick={() => setSelectedDate(getTodayString())}
               className="rounded-lg bg-[#b9ab93] px-3 py-2 text-sm font-medium text-white hover:bg-[#9b8a6f]"
             >
-              วันนี้
+              Today
             </button>
           )}
         </div>
@@ -502,12 +584,11 @@ export default function DashboardPage() {
       {/* Stats Cards */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatsCard
-          icon="💰"
-          label={isToday ? "รายได้วันนี้" : "รายได้"}
+          label={isToday ? "Today's Revenue" : "Revenue"}
           value={formatCurrency(stats?.revenue_today)}
           subValue={
             stats?.revenue_change_percent != null
-              ? `${stats.revenue_change_percent >= 0 ? "+" : ""}${stats.revenue_change_percent.toFixed(1)}% จากวันก่อน`
+              ? `${stats.revenue_change_percent >= 0 ? "+" : ""}${stats.revenue_change_percent.toFixed(1)}% from previous day`
               : null
           }
           subColor={
@@ -515,14 +596,12 @@ export default function DashboardPage() {
           }
         />
         <StatsCard
-          icon="📅"
-          label={isToday ? "นัดหมายวันนี้" : "นัดหมาย"}
+          label={isToday ? "Today's Appointments" : "Appointments"}
           value={stats?.appointments_today || 0}
-          subValue={`🟡 ${stats?.appointments_incomplete || 0}  ✅ ${stats?.appointments_complete || 0}`}
+          subValue={`Pending: ${stats?.appointments_incomplete || 0} | Complete: ${stats?.appointments_complete || 0}`}
         />
         <StatsCard
-          icon="🎁"
-          label={isToday ? "โปรโมที่ใช้" : "โปรโม"}
+          label="Promotions Used"
           value={stats?.promotions_used_today || 0}
           subValue={
             stats?.promotions_discount_today
@@ -532,17 +611,16 @@ export default function DashboardPage() {
           subColor="text-red-500"
         />
         <StatsCard
-          icon="⚠️"
-          label="สินค้าหมด"
-          value={stats?.out_of_stock_count || 0}
-          subValue="ต้องสั่งซื้อ"
-          subColor="text-red-500"
+          label="Low Stock Items"
+          value={dailyStock?.low_stock_count || 0}
+          subValue="items with qty ≤ 10"
+          subColor="text-yellow-600"
         />
       </div>
 
       {/* Revenue Chart & Appointments */}
       <div className="mb-6 grid gap-6 lg:grid-cols-2">
-        <SectionCard title="📈 รายได้">
+        <SectionCard title="Revenue">
           <div className="mb-4 flex gap-2">
             {[7, 30, 90].map((d) => (
               <button
@@ -554,53 +632,81 @@ export default function DashboardPage() {
                     : "bg-black/5 text-black/60 hover:bg-black/10"
                 }`}
               >
-                {d} วัน
+                {d} Days
               </button>
             ))}
           </div>
           <RevenueChart data={revenueChart?.data} />
           {revenueChart && (
             <div className="mt-3 text-right text-sm text-black/50">
-              รวม: <span className="font-semibold text-black">{formatCurrency(revenueChart.total)}</span>
+              Total: <span className="font-semibold text-black">{formatCurrency(revenueChart.total)}</span>
             </div>
           )}
         </SectionCard>
 
-        <SectionCard title="📆 นัดหมายวันนี้">
+        <SectionCard title="Appointments">
           <AppointmentsList appointments={appointments?.appointments} />
           {appointments && (
             <div className="mt-3 flex justify-end gap-4 text-xs text-black/50">
-              <span>🟡 รอ: {appointments.incomplete}</span>
-              <span>✅ เสร็จ: {appointments.complete}</span>
+              <span>Pending: {appointments.incomplete}</span>
+              <span>Complete: {appointments.complete}</span>
             </div>
           )}
         </SectionCard>
       </div>
 
-      {/* Top Treatments & Promotions */}
+      {/* Top Treatments & Expiring Items */}
       <div className="mb-6 grid gap-6 lg:grid-cols-2">
-        <SectionCard title="🏆 Treatment ยอดนิยม (เดือนนี้)">
-          <TopTreatmentsList treatments={topTreatments?.treatments} />
-        </SectionCard>
+        <div className="rounded-xl border-2 border-black/10 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-black/60">
+              Top Treatments
+            </h3>
+            <div className="flex gap-1">
+              {[
+                { key: "day", label: "Day" },
+                { key: "week", label: "Week" },
+                { key: "month", label: "Month" },
+              ].map((p) => (
+                <button
+                  key={p.key}
+                  onClick={() => setTreatmentPeriod(p.key)}
+                  className={`rounded px-2 py-1 text-[10px] font-medium transition ${
+                    treatmentPeriod === p.key
+                      ? "bg-[#b9ab93] text-white"
+                      : "bg-black/5 text-black/60 hover:bg-black/10"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <TreatmentsPieChart treatments={topTreatments?.treatments} />
+        </div>
 
-        <SectionCard title="🎁 โปรโมชั่นที่ใช้ (เดือนนี้)">
-          <PromotionsList promotions={promotionsUsed?.promotions} />
+        <SectionCard title="Expiring Items">
+          <ExpiringItemsList
+            items={expiringItems?.items}
+            expiringSoon={expiringItems?.expiring_soon || 0}
+          />
         </SectionCard>
       </div>
 
-      {/* Out of Stock */}
-      <SectionCard title="⚠️ สินค้าหมด (qty ≤ 0)" className="mb-6">
-        <OutOfStockTable items={outOfStock?.items} />
+      {/* Daily Stock */}
+      <SectionCard title="Daily Stock" className="mb-6">
+        <DailyStockTable items={dailyStock?.items} />
       </SectionCard>
 
-      {/* Completed Today */}
-      <SectionCard title="✅ รายการที่เสร็จสิ้นวันนี้">
+      {/* Completed Transactions */}
+      <SectionCard title="Completed Transactions">
         <CompletedTodayTable
           items={completedToday?.items}
           totalCount={completedToday?.total_count}
           totalAmount={completedToday?.total_amount}
         />
       </SectionCard>
-    </div>
+      </div>
+    </section>
   );
 }

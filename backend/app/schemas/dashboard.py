@@ -77,6 +77,23 @@ class OutOfStockResponse(BaseModel):
     total: int
 
 
+class DailyStockRow(BaseModel):
+    item_id: int
+    sku: str | None
+    name: str | None
+    variant_name: str | None
+    qty: int
+    prev_qty: int | None
+    change: int | None
+
+
+class DailyStockResponse(BaseModel):
+    items: list[DailyStockRow]
+    total: int
+    low_stock_count: int
+    stock_date: date
+
+
 class CompletedTodayRow(BaseModel):
     sell_invoice_id: int
     invoice_no: str | None
@@ -91,3 +108,20 @@ class CompletedTodayResponse(BaseModel):
     items: list[CompletedTodayRow]
     total_count: int
     total_amount: Decimal
+
+
+class ExpiringItemRow(BaseModel):
+    item_id: int
+    sku: str | None
+    name: str | None
+    variant_name: str | None
+    expire_date: date
+    days_until_expire: int
+    qty: int | None
+
+
+class ExpiringItemsResponse(BaseModel):
+    items: list[ExpiringItemRow]
+    total: int
+    expiring_soon: int  # within 30 days
+    expired: int  # already expired
