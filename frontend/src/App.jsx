@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import Header from "./components/Header";
+import DashboardPage from "./components/dashboardPage";
 import InventoryPage from "./components/inventoryPage";
 import ServicePage from "./components/servicePage";
 import Footer from "./components/footer";
@@ -21,7 +22,8 @@ export default function App() {
       <Header />
       <main className="flex-1">
         <Routes>
-          <Route path="/" element={<Navigate to="/services" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/services" element={<ServicePage />} />
           <Route path="/category/:categoryKey" element={<CategoryDetailPage />} />
           <Route path="/cart" element={<CartPage />} />
@@ -31,7 +33,6 @@ export default function App() {
           <Route path="/promotion" element={<PromotionPage />} />
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/lumina" element={<ChatPage />} />
-          <Route path="/home" element={<NotFound label="Home" />} />
           <Route path="/customer" element={<CustomerPage />} />
           <Route path="/customer/:customerId" element={<CustomerDetailPage />} />
           <Route path="/appointment" element={<AppointmentPage />} />

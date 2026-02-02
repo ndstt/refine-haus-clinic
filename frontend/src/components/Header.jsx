@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 
 const NAV = [
-  { key: "home", label: "HOME", to: "/home" },
+  { key: "dashboard", label: "DASHBOARD", to: "/dashboard" },
   { key: "customer", label: "CUSTOMER", to: "/customer" },
   { key: "services", label: "SERVICES", to: "/services" },
   { key: "promotion", label: "PROMOTION", to: "/promotion" },
