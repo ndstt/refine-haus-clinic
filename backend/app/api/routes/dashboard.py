@@ -23,29 +23,36 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
 @router.get("/stats", response_model=StatsCard)
-async def get_stats() -> StatsCard:
-    """Get dashboard stats cards data."""
+async def get_stats(
+    target_date: date | None = Query(None, description="Target date (default: today)"),
+) -> StatsCard:
+    """Get dashboard stats cards data for a specific date."""
+    selected_date = target_date or date.today()
+    prev_date = selected_date - timedelta(days=1)
+
     pool = await DataBasePool.get_pool()
     async with pool.acquire() as conn:
-        # Revenue today
+        # Revenue for selected date
         revenue_today = await conn.fetchval(
             """
             SELECT COALESCE(SUM(final_amount), 0)
             FROM sell_invoice
-            WHERE DATE(issue_at) = CURRENT_DATE AND status = 'PAID'
-            """
+            WHERE DATE(issue_at) = $1 AND status = 'PAID'
+            """,
+            selected_date,
         )
 
-        # Revenue yesterday (for comparison)
+        # Revenue previous day (for comparison)
         revenue_yesterday = await conn.fetchval(
             """
             SELECT COALESCE(SUM(final_amount), 0)
             FROM sell_invoice
-            WHERE DATE(issue_at) = CURRENT_DATE - INTERVAL '1 day' AND status = 'PAID'
-            """
+            WHERE DATE(issue_at) = $1 AND status = 'PAID'
+            """,
+            prev_date,
         )
 
-        # Appointments today
+        # Appointments for selected date
         appointments_row = await conn.fetchrow(
             """
             SELECT
@@ -53,22 +60,24 @@ async def get_stats() -> StatsCard:
                 COUNT(*) FILTER (WHERE appointment_status = 'INCOMPLETE') AS incomplete,
                 COUNT(*) FILTER (WHERE appointment_status = 'COMPLETE') AS complete
             FROM appointment
-            WHERE DATE(appointment_time) = CURRENT_DATE
-            """
+            WHERE DATE(appointment_time) = $1
+            """,
+            selected_date,
         )
 
-        # Promotions used today
+        # Promotions used on selected date
         promo_row = await conn.fetchrow(
             """
             SELECT
                 COUNT(*) AS usage_count,
                 COALESCE(SUM(discount_total), 0) AS total_discount
             FROM promotion_redemption
-            WHERE DATE(redeemed_at) = CURRENT_DATE
-            """
+            WHERE DATE(redeemed_at) = $1
+            """,
+            selected_date,
         )
 
-        # Out of stock count
+        # Out of stock count (current, not date-specific)
         out_of_stock = await conn.fetchval(
             """
             SELECT COUNT(*)
@@ -100,8 +109,12 @@ async def get_stats() -> StatsCard:
 @router.get("/revenue-chart", response_model=RevenueChartResponse)
 async def get_revenue_chart(
     days: int = Query(7, ge=1, le=90),
+    end_date: date | None = Query(None, description="End date (default: today)"),
 ) -> RevenueChartResponse:
-    """Get revenue chart data for the last N days."""
+    """Get revenue chart data for the last N days ending on end_date."""
+    target_end = end_date or date.today()
+    target_start = target_end - timedelta(days=days)
+
     pool = await DataBasePool.get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -110,12 +123,13 @@ async def get_revenue_chart(
                 DATE(issue_at) AS date,
                 COALESCE(SUM(final_amount), 0) AS amount
             FROM sell_invoice
-            WHERE DATE(issue_at) >= CURRENT_DATE - $1 * INTERVAL '1 day'
+            WHERE DATE(issue_at) >= $1 AND DATE(issue_at) <= $2
                 AND status = 'PAID'
             GROUP BY DATE(issue_at)
             ORDER BY date ASC
             """,
-            days,
+            target_start,
+            target_end,
         )
 
     # Fill missing dates with 0
@@ -124,7 +138,7 @@ async def get_revenue_chart(
     date_map = {row["date"]: row["amount"] for row in rows}
 
     for i in range(days, -1, -1):
-        d = date.today() - timedelta(days=i)
+        d = target_end - timedelta(days=i)
         amount = date_map.get(d, Decimal(0))
         data.append(RevenueDataPoint(date=d, amount=amount))
         total += amount
@@ -133,8 +147,12 @@ async def get_revenue_chart(
 
 
 @router.get("/appointments", response_model=AppointmentsResponse)
-async def get_appointments_today() -> AppointmentsResponse:
-    """Get today's appointments."""
+async def get_appointments(
+    target_date: date | None = Query(None, description="Target date (default: today)"),
+) -> AppointmentsResponse:
+    """Get appointments for a specific date."""
+    selected_date = target_date or date.today()
+
     pool = await DataBasePool.get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -147,9 +165,10 @@ async def get_appointments_today() -> AppointmentsResponse:
                 a.appointment_status
             FROM appointment a
             LEFT JOIN customer c ON a.customer_id = c.customer_id
-            WHERE DATE(a.appointment_time) = CURRENT_DATE
+            WHERE DATE(a.appointment_time) = $1
             ORDER BY a.appointment_time ASC
-            """
+            """,
+            selected_date,
         )
 
     appointments = [AppointmentRow(**dict(row)) for row in rows]
@@ -167,8 +186,13 @@ async def get_appointments_today() -> AppointmentsResponse:
 @router.get("/top-treatments", response_model=TopTreatmentsResponse)
 async def get_top_treatments(
     limit: int = Query(5, ge=1, le=20),
+    target_date: date | None = Query(None, description="Target date for month calculation"),
 ) -> TopTreatmentsResponse:
-    """Get top treatments this month."""
+    """Get top treatments for the month of target_date."""
+    selected_date = target_date or date.today()
+    # Get first day of the month
+    month_start = selected_date.replace(day=1)
+
     pool = await DataBasePool.get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -179,11 +203,13 @@ async def get_top_treatments(
                 COUNT(*) AS count
             FROM treatment_session ts
             JOIN treatment t ON ts.treatment_id = t.treatment_id
-            WHERE DATE(ts.session_date) >= DATE_TRUNC('month', CURRENT_DATE)
+            WHERE DATE(ts.session_date) >= $1 AND DATE(ts.session_date) <= $2
             GROUP BY ts.treatment_id, t.name
             ORDER BY count DESC
-            LIMIT $1
+            LIMIT $3
             """,
+            month_start,
+            selected_date,
             limit,
         )
 
@@ -195,8 +221,12 @@ async def get_top_treatments(
 @router.get("/promotions-used", response_model=PromotionsUsedResponse)
 async def get_promotions_used(
     limit: int = Query(5, ge=1, le=20),
+    target_date: date | None = Query(None, description="Target date for month calculation"),
 ) -> PromotionsUsedResponse:
-    """Get recently used promotions."""
+    """Get promotions used for the month of target_date."""
+    selected_date = target_date or date.today()
+    month_start = selected_date.replace(day=1)
+
     pool = await DataBasePool.get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -209,11 +239,13 @@ async def get_promotions_used(
                 COALESCE(SUM(pr.discount_total), 0) AS total_discount
             FROM promotion_redemption pr
             JOIN promotion p ON pr.promotion_id = p.promotion_id
-            WHERE DATE(pr.redeemed_at) >= DATE_TRUNC('month', CURRENT_DATE)
+            WHERE DATE(pr.redeemed_at) >= $1 AND DATE(pr.redeemed_at) <= $2
             GROUP BY pr.promotion_id, p.code, p.name
             ORDER BY usage_count DESC
-            LIMIT $1
+            LIMIT $3
             """,
+            month_start,
+            selected_date,
             limit,
         )
 
@@ -254,8 +286,12 @@ async def get_out_of_stock() -> OutOfStockResponse:
 
 
 @router.get("/completed-today", response_model=CompletedTodayResponse)
-async def get_completed_today() -> CompletedTodayResponse:
-    """Get completed transactions today."""
+async def get_completed_today(
+    target_date: date | None = Query(None, description="Target date (default: today)"),
+) -> CompletedTodayResponse:
+    """Get completed transactions for a specific date."""
+    selected_date = target_date or date.today()
+
     pool = await DataBasePool.get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -272,9 +308,10 @@ async def get_completed_today() -> CompletedTodayResponse:
             LEFT JOIN customer c ON si.customer_id = c.customer_id
             LEFT JOIN treatment_session ts ON si.sell_invoice_id = ts.sell_invoice_id
             LEFT JOIN treatment t ON ts.treatment_id = t.treatment_id
-            WHERE DATE(si.issue_at) = CURRENT_DATE AND si.status = 'PAID'
+            WHERE DATE(si.issue_at) = $1 AND si.status = 'PAID'
             ORDER BY si.sell_invoice_id, si.issue_at ASC
-            """
+            """,
+            selected_date,
         )
 
     items = [CompletedTodayRow(**dict(row)) for row in rows]
