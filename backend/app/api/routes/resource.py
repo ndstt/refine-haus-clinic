@@ -244,7 +244,7 @@ async def get_customer_treatments(customer_id: int) -> CustomerTreatmentResponse
               ts.session_date,
               ts.age_at_session,
               ts.note,
-              ts.next_appointment_date,
+              ts.session_time,
               ts.sell_invoice_id
             FROM treatment_session ts
             JOIN treatment t ON t.treatment_id = ts.treatment_id

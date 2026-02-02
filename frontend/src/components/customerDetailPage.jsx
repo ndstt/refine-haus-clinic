@@ -218,7 +218,7 @@ export default function CustomerDetailPage() {
                   <th className="pb-3 font-semibold">Treatment</th>
                   <th className="pb-3 font-semibold">Image</th>
                   <th className="pb-3 font-semibold">Note</th>
-                  <th className="pb-3 font-semibold">Next</th>
+                  <th className="pb-3 font-semibold">Time</th>
                 </tr>
               </thead>
               <tbody>
@@ -249,7 +249,7 @@ export default function CustomerDetailPage() {
                     </td>
                     <td className="py-2">{row.note || "-"}</td>
                     <td className="py-2 whitespace-nowrap">
-                      {row.next_appointment_date || "-"}
+                      {row.session_time || "-"}
                     </td>
                   </tr>
                 ))}

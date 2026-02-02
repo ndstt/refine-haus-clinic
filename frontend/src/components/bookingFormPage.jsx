@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 
@@ -6,6 +6,8 @@ export default function BookingFormPage() {
   const navigate = useNavigate();
   const { cartItems, getCartTotal, getCartCount, clearCart } = useCart();
   const isNavigatingToSuccess = useRef(false);
+  const apiBase =
+    import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api/v1";
 
   const [searchQuery, setSearchQuery] = useState("");
   const [name, setName] = useState("");
@@ -19,6 +21,86 @@ export default function BookingFormPage() {
   const [isNewCustomer, setIsNewCustomer] = useState(false);
 
   const totalPrice = getCartTotal();
+  const [promotionBundles, setPromotionBundles] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch(`${apiBase}/promotion/bundles`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load promotions");
+        return res.json();
+      })
+      .then((data) => {
+        if (!isMounted) return;
+        setPromotionBundles(Array.isArray(data?.promotions) ? data.promotions : []);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setPromotionBundles([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [apiBase]);
+
+  const cartById = useMemo(() => {
+    const map = new Map();
+    cartItems.forEach((item) => {
+      map.set(item.treatment_id, item);
+    });
+    return map;
+  }, [cartItems]);
+
+  const appliedPromotions = useMemo(() => {
+    const availability = new Map();
+    cartItems.forEach((item) => {
+      availability.set(item.treatment_id, item.quantity || 0);
+    });
+
+    const promos = [...promotionBundles].sort(
+      (a, b) => (b.discount_percent || 0) - (a.discount_percent || 0)
+    );
+
+    const applied = [];
+    promos.forEach((promo) => {
+      const treatments = Array.isArray(promo.treatments) ? promo.treatments : [];
+      if (!treatments.length) return;
+      const canApply = treatments.every(
+        (t) => (availability.get(t.treatment_id) || 0) > 0
+      );
+      if (!canApply) return;
+      treatments.forEach((t) => {
+        availability.set(t.treatment_id, (availability.get(t.treatment_id) || 0) - 1);
+      });
+      applied.push(promo);
+    });
+
+    return applied;
+  }, [cartItems, promotionBundles]);
+
+  const promotionTotals = useMemo(() => {
+    return appliedPromotions.map((promo) => {
+      const treatments = Array.isArray(promo.treatments) ? promo.treatments : [];
+      const items = treatments.map((t) => {
+        const cartItem = cartById.get(t.treatment_id);
+        return {
+          ...t,
+          price: cartItem?.price ?? t.price ?? 0,
+        };
+      });
+      const originalTotal = items.reduce((sum, item) => sum + (item.price || 0), 0);
+      const discountPercent = Number(promo.discount_percent || 0);
+      const discountAmount = originalTotal * (discountPercent / 100);
+      return { ...promo, discountAmount };
+    });
+  }, [appliedPromotions, cartById]);
+
+  const totalDiscount = promotionTotals.reduce(
+    (sum, promo) => sum + (promo.discountAmount || 0),
+    0
+  );
+  const finalTotal = Math.max(0, totalPrice - totalDiscount);
 
   // Redirect to cart if empty (only if not navigating to success)
   useEffect(() => {
@@ -67,13 +149,49 @@ export default function BookingFormPage() {
     setIsNewCustomer(true);
   };
 
-  const handlePayment = () => {
+  const handlePayment = async () => {
     // Mark that we're navigating to success (to prevent redirect to cart)
     isNavigatingToSuccess.current = true;
 
     // Save cart data before clearing (to pass to success page)
     const treatmentsData = [...cartItems];
-    const totalPriceData = totalPrice;
+    const totalPriceData = finalTotal;
+
+    const sessionDate = dateBooking || new Date().toISOString().slice(0, 10);
+    const sessionTime = timeBooking || "10:00";
+
+    const payload = {
+      treatments: treatmentsData.map((item) => ({
+        treatment_id: item.treatment_id,
+        price: item.price || 0,
+        quantity: item.quantity || 1,
+      })),
+      promotions: appliedPromotions.map((promo) => promo.promotion_id),
+      customer_name: name || searchQuery || "Guest",
+      customer_id: customerId || null,
+      session_date: sessionDate,
+      session_time: sessionTime,
+      note: note || null,
+      total_amount: totalPrice,
+    };
+
+    let invoiceNo = null;
+    try {
+      const response = await fetch(`${apiBase}/booking`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.message || "Booking failed");
+      }
+      invoiceNo = result.invoice_no ?? null;
+    } catch (error) {
+      isNavigatingToSuccess.current = false;
+      alert(error.message || "Booking failed");
+      return;
+    }
 
     // Clear cart
     clearCart();
@@ -83,6 +201,9 @@ export default function BookingFormPage() {
       state: {
         treatments: treatmentsData,
         totalPrice: totalPriceData,
+        originalTotal: totalPrice,
+        discountTotal: totalDiscount,
+        invoiceNo,
         booking: {
           name,
           customerId,
@@ -233,6 +354,28 @@ export default function BookingFormPage() {
                 ))}
               </div>
 
+              {promotionTotals.length > 0 && (
+                <div className="mt-4 rounded-xl border border-[#eadcc7] bg-[#fff7ee] px-4 py-4">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9b7a2f]">
+                    Promotions Applied
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {promotionTotals.map((promo) => (
+                      <div key={`promo-${promo.promotion_id}`} className="text-[12px] text-black/70">
+                        <div className="font-semibold text-black">
+                          {promo.name || promo.code || "Promotion"}
+                        </div>
+                        <div className="mt-1 space-y-1 text-[12px] text-black/55">
+                          {(promo.treatments || []).map((item) => (
+                            <div key={item.treatment_id}>{item.name}</div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="mt-4 space-y-2 border-t border-black/10 pt-4 text-[12px] text-black/70">
                 {name && (
                   <div className="flex items-center justify-between">
@@ -241,9 +384,23 @@ export default function BookingFormPage() {
                   </div>
                 )}
                 <div className="flex items-center justify-between pt-2">
+                  <span className="text-[12px] text-black/60">Original Total</span>
+                  <span className="text-[14px] font-semibold text-black">
+                    THB {totalPrice.toLocaleString()}
+                  </span>
+                </div>
+                {promotionTotals.length > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-black/60">Discount</span>
+                    <span className="text-[14px] font-semibold text-[#9b7a2f]">
+                      -THB {totalDiscount.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between pt-2">
                   <span className="text-[14px] font-semibold">Total</span>
                   <span className="text-[18px] font-semibold text-[#9b7a2f]">
-                    THB {totalPrice.toLocaleString()}
+                    THB {finalTotal.toLocaleString()}
                   </span>
                 </div>
               </div>

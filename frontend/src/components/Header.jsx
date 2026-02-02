@@ -5,6 +5,8 @@ const NAV = [
   { key: "home", label: "HOME", to: "/home" },
   { key: "customer", label: "CUSTOMER", to: "/customer" },
   { key: "services", label: "SERVICES", to: "/services" },
+  { key: "promotion", label: "PROMOTION", to: "/promotion" },
+  { key: "appointment", label: "APPOINTMENT", to: "/appointment" },
   { key: "inventory", label: "INVENTORY", to: "/inventory" },
   { key: "lumina", label: "LUMINA", to: "/lumina" },
 ];
@@ -32,7 +34,7 @@ export default function Header() {
           </div>
         </div>
 
-        <nav className="mt-10 flex w-full flex-wrap items-center justify-center gap-x-14 gap-y-4 font-luxury text-[13px] uppercase tracking-[0.28em] text-black sm:mt-12 sm:gap-x-20 sm:text-[14px] md:gap-x-24 md:text-[15px]">
+        <nav className="mt-10 flex w-full flex-wrap items-center justify-center gap-x-6 gap-y-3 font-luxury text-[12px] uppercase tracking-[0.22em] text-black sm:mt-12 sm:gap-x-10 sm:text-[13px] md:gap-x-12 md:text-[14px]">
           {NAV.map((item) => (
             <NavLink
               key={item.key}

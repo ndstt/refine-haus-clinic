@@ -6,6 +6,9 @@ export default function TransactionCompletedPage() {
   const location = useLocation();
   const treatments = location.state?.treatments || [];
   const totalPrice = location.state?.totalPrice || 0;
+  const originalTotal = location.state?.originalTotal ?? totalPrice;
+  const discountTotal = location.state?.discountTotal ?? 0;
+  const invoiceNo = location.state?.invoiceNo ?? null;
   const booking = location.state?.booking;
 
   const timestamp = useMemo(() => {
@@ -48,6 +51,11 @@ export default function TransactionCompletedPage() {
               Transaction Completed
             </div>
             <div className="mt-2 text-[12px] text-black/60">{timestamp}</div>
+            {invoiceNo && (
+              <div className="mt-1 text-[12px] text-black/50">
+                Invoice: {invoiceNo}
+              </div>
+            )}
 
             <div className="mt-6 rounded-xl bg-[#f8efe7] px-5 py-4 text-left">
               {/* Treatments List */}
@@ -70,9 +78,23 @@ export default function TransactionCompletedPage() {
 
               <div className="mt-3 border-t border-black/10 pt-3">
                 <div className="flex items-center justify-between text-[12px] text-black/70">
+                  <span>Original Total</span>
+                  <span className="font-semibold text-black">
+                    THB {Number(originalTotal || 0).toLocaleString()}
+                  </span>
+                </div>
+                {discountTotal > 0 && (
+                  <div className="mt-2 flex items-center justify-between text-[12px] text-black/70">
+                    <span>Discount</span>
+                    <span className="font-semibold text-[#9b7a2f]">
+                      -THB {Number(discountTotal || 0).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                <div className="mt-2 flex items-center justify-between text-[12px] text-black/70">
                   <span className="font-semibold">Total Payment</span>
                   <span className="text-[14px] font-semibold text-[#9b7a2f]">
-                    THB {totalPrice.toLocaleString()}
+                    THB {Number(totalPrice || 0).toLocaleString()}
                   </span>
                 </div>
               </div>
