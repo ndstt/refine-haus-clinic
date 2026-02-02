@@ -4,6 +4,7 @@ from app.api.routes.ai import router as ai_router
 from app.api.routes.booking import router as booking_router
 from app.api.routes.chat import router as chat_router
 from app.api.routes.health import router as health_router
+from app.api.routes.ml import router as ml_router
 from app.api.routes.purchase_invoice import router as purchase_invoice_router
 from app.api.routes.resource import router as resource_router
 from app.api.routes.transaction import router as transaction_router
@@ -20,3 +21,4 @@ router.include_router(purchase_invoice_router)
 router.include_router(transaction_router)
 router.include_router(treatment_router)
 router.include_router(booking_router)
+router.include_router(ml_router)

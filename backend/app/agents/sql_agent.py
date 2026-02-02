@@ -31,7 +31,15 @@ def create_sql_agent_executor():
 
     db = SQLDatabase.from_uri(
         _build_database_url(),
-        include_tables=["customer", "item_catalog", "sell_invoice", "sell_invoice_item", "treatment"],
+        include_tables=[
+            "customer",
+            "item_catalog",
+            "sell_invoice",
+            "sell_invoice_item",
+            "treatment",
+            "treatment_session",
+            "promotion",
+        ],
         sample_rows_in_table_info=3,
     )
 
@@ -40,6 +48,8 @@ def create_sql_agent_executor():
         db=db,
         verbose=True,
         prefix=SYSTEM_PROMPT,
+        agent_type="openai-tools",  # ใช้ OpenAI tools แทน ReAct เพื่อลด parsing errors
+        max_iterations=10,  # จำกัด iterations เพื่อไม่ให้ติด loop
         agent_executor_kwargs={
             "handle_parsing_errors": True,
             "return_intermediate_steps": True,

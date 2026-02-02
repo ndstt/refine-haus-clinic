@@ -7,6 +7,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api.router import router as api_router
 from app.db.postgres import DataBasePool
+from app.services.scheduler import start_scheduler, stop_scheduler
 
 logging.basicConfig(level=logging.INFO)
 
@@ -34,9 +35,13 @@ def create_app() -> FastAPI:
     async def startup() -> None:
         # Create a database connection pool
         await DataBasePool.setup()
+        # Start the scheduler for ML jobs
+        start_scheduler()
 
     @app.on_event("shutdown")
     async def shutdown() -> None:
+        # Stop the scheduler
+        stop_scheduler()
         # Close the database connection pool on shutdown
         await DataBasePool.teardown()
 
