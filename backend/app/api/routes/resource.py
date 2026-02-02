@@ -18,6 +18,12 @@ from app.utils.storage import build_signed_url
 router = APIRouter(prefix="/resource", tags=["resource"])
 
 
+@router.get("/assets/service-bg")
+async def get_service_bg() -> dict:
+    url = build_signed_url("service-bg.png", bucket="assets")
+    return {"url": url}
+
+
 @router.get("/item-catalog", response_model=ItemCatalogPage)
 async def list_item_catalog(
     page: int = Query(1, ge=1),
@@ -253,7 +259,7 @@ async def get_customer_treatments(customer_id: int) -> CustomerTreatmentResponse
         treatments=[
             CustomerTreatmentRow(
                 **dict(row),
-                image_url=build_signed_url(row["image_obj_key"]),
+                image_url=build_signed_url(row["image_obj_key"], bucket="treatment"),
             )
             for row in rows
         ],

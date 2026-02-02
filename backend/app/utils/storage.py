@@ -1,4 +1,3 @@
-import os
 from functools import lru_cache
 from typing import Optional
 from urllib.parse import urlparse
@@ -6,13 +5,14 @@ from urllib.parse import urlparse
 import boto3
 from botocore.client import Config
 
+from config import SUPABASE_OBJECT_STORAGE
 
 @lru_cache(maxsize=1)
 def _get_s3_client():
-    access_key = os.getenv("SUPABASE_ACCESS_KEY_ID")
-    secret_key = os.getenv("SUPABASE_SECRET_ACCESS_KEY")
-    endpoint = os.getenv("SUPABASE_S3_ENDPOINT")
-    region = os.getenv("SUPABASE_S3_REGION", "ap-southeast-1")
+    access_key = SUPABASE_OBJECT_STORAGE.get("access_key_id")
+    secret_key = SUPABASE_OBJECT_STORAGE.get("secret_access_key")
+    endpoint = SUPABASE_OBJECT_STORAGE.get("s3_endpoint")
+    region = SUPABASE_OBJECT_STORAGE.get("s3_region", "ap-southeast-1")
 
     if not (access_key and secret_key and endpoint):
         return None
@@ -53,12 +53,15 @@ def _strip_endpoint(key: str, endpoint: str, bucket: str) -> Optional[str]:
     return path or None
 
 
-def build_signed_url(key: Optional[str], expires_in: int = 3600) -> Optional[str]:
+def build_signed_url(
+    key: Optional[str],
+    bucket: str,
+    expires_in: int = 3600,
+) -> Optional[str]:
     if not key:
         return None
 
-    bucket = os.getenv("SUPABASE_S3_BUCKET", "treatment")
-    endpoint = os.getenv("SUPABASE_S3_ENDPOINT")
+    endpoint = SUPABASE_OBJECT_STORAGE.get("s3_endpoint")
     if key.startswith("http://") or key.startswith("https://"):
         if endpoint:
             stripped = _strip_endpoint(key, endpoint, bucket)
