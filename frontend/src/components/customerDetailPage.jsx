@@ -231,9 +231,15 @@ export default function CustomerDetailPage() {
                       {row.treatment_name || "-"}
                     </td>
                     <td className="py-2 whitespace-nowrap">
-                      {imageBase && row.image_obj_key ? (
+                      {row.image_url || row.image_obj_key ? (
                         <img
-                          src={`${imageBase}${row.image_obj_key}`}
+                          src={
+                            row.image_url
+                              ? row.image_url
+                              : row.image_obj_key.startsWith("http")
+                                ? row.image_obj_key
+                                : `${imageBase}${row.image_obj_key}`
+                          }
                           alt={row.treatment_name || "treatment"}
                           className="h-8 w-8 rounded object-cover"
                         />

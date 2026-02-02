@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CATEGORIES } from "../data/service";
 import { useCart } from "../context/CartContext";
 
 export default function CategoryDetailPage() {
@@ -11,17 +10,51 @@ export default function CategoryDetailPage() {
   const [treatments, setTreatments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addedMessage, setAddedMessage] = useState("");
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
 
-  // Find category info from CATEGORIES
-  const category = CATEGORIES.find((c) => c.key === categoryKey);
-  const categoryTitle = category?.title || categoryKey;
+  const apiBase =
+    import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api/v1";
+
+  const slugify = (value) =>
+    value
+      .toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
+  const categoryTitle = useMemo(() => {
+    if (!categoriesLoaded) return "";
+    const match = categories.find(
+      (item) => slugify(item.category || "") === categoryKey
+    );
+    return match?.category || categoryKey;
+  }, [categories, categoryKey, categoriesLoaded]);
 
   useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch(`${apiBase}/treatment/categories`);
+        if (!res.ok) throw new Error("Failed to load categories");
+        const data = await res.json();
+        setCategories(Array.isArray(data?.categories) ? data.categories : []);
+        setCategoriesLoaded(true);
+      } catch (error) {
+        setCategories([]);
+        setCategoriesLoaded(true);
+      }
+    };
+
+    fetchCategories();
+  }, [apiBase]);
+
+  useEffect(() => {
+    if (!categoriesLoaded || !categoryTitle) return;
     const fetchTreatments = async () => {
       setLoading(true);
       try {
         const response = await fetch(
-          `http://localhost:8000/api/v1/treatment?category=${encodeURIComponent(categoryTitle)}`
+          `${apiBase}/treatment?category=${encodeURIComponent(categoryTitle)}`
         );
         const data = await response.json();
         setTreatments(data.treatments || []);
@@ -34,7 +67,7 @@ export default function CategoryDetailPage() {
     };
 
     fetchTreatments();
-  }, [categoryTitle]);
+  }, [apiBase, categoryTitle, categoriesLoaded]);
 
   const handleAddToCart = (treatment) => {
     addToCart(treatment);

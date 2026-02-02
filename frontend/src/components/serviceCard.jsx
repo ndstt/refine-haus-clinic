@@ -1,4 +1,3 @@
-import cardBg from "../assets/service-bg.jpg";
 import { Link } from "react-router-dom";
 
 export default function ServiceCard({
@@ -14,17 +13,20 @@ export default function ServiceCard({
         to={to}
         className="block w-full max-w-55 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30"
       >
-      <div
-        className="relative flex aspect-260/260 w-full items-center justify-center overflow-hidden bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(${cardBg})` }}
-      >
+      <div className="relative flex aspect-260/260 w-full items-center justify-center overflow-hidden bg-gradient-to-br from-[#efe3d3] via-[#f6eadb] to-[#ead8c0]">
         <div className="h-40 w-40 overflow-hidden bg-white shadow-sm ring-1 ring-black/10">
-          <img
-            className="h-full w-full object-cover"
-            src={image}
-            alt={title}
-            loading="lazy"
-          />
+          {image ? (
+            <img
+              className="h-full w-full object-cover"
+              src={image}
+              alt={title}
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-[0.2em] text-black/40">
+              No Image
+            </div>
+          )}
         </div>
       </div>
 
@@ -49,17 +51,20 @@ export default function ServiceCard({
 
   return (
     <div className="block w-full max-w-55">
-      <div
-        className="relative flex aspect-260/260 w-full items-center justify-center overflow-hidden bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(${cardBg})` }}
-      >
+      <div className="relative flex aspect-260/260 w-full items-center justify-center overflow-hidden bg-gradient-to-br from-[#efe3d3] via-[#f6eadb] to-[#ead8c0]">
         <div className="h-40 w-40 overflow-hidden bg-white shadow-sm ring-1 ring-black/10">
-          <img
-            className="h-full w-full object-cover"
-            src={image}
-            alt={title}
-            loading="lazy"
-          />
+          {image ? (
+            <img
+              className="h-full w-full object-cover"
+              src={image}
+              alt={title}
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-[0.2em] text-black/40">
+              No Image
+            </div>
+          )}
         </div>
       </div>
 

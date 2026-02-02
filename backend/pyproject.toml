@@ -10,7 +10,8 @@ dependencies = [
   "psycopg2-binary",
   "python-dotenv",
   "langchain_openai",
-  "langchain_community"
+  "langchain_community",
+  "boto3"
 ]
 
 [build-system]

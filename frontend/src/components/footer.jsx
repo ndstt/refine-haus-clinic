@@ -1,5 +1,3 @@
-import logo from "../assets/rhc-logo.png";
-
 export default function Footer() {
   return (
     <footer id="contact" className="w-full bg-[#B19E87] text-white">
@@ -29,12 +27,8 @@ export default function Footer() {
 
           <div className="flex items-center justify-center lg:pt-14">
             <div className="flex items-center gap-4">
-              <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-[#a89c86]">
-                <img
-                  className="h-full w-full object-cover opacity-90"
-                  src={logo}
-                  alt="Refine Haus Clinic"
-                />
+              <div className="grid h-14 w-14 place-items-center rounded-full bg-[#a89c86] text-[10px] font-semibold uppercase tracking-[0.2em] text-white">
+                RHC
               </div>
 
               <div className="font-luxury text-left uppercase leading-[1.05] tracking-[0.18em] text-black">

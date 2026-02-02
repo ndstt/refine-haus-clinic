@@ -12,6 +12,7 @@ from app.schemas.customer import (
 )
 from app.schemas.inventory import ItemCatalogItem, ItemCatalogPage
 from app.schemas.purchase import SupplierOption, SupplierOptionResponse
+from app.utils.storage import build_signed_url
 
 # Application domain resources will live under /api/v1/resource/*
 router = APIRouter(prefix="/resource", tags=["resource"])
@@ -249,7 +250,13 @@ async def get_customer_treatments(customer_id: int) -> CustomerTreatmentResponse
 
     return CustomerTreatmentResponse(
         customer=CustomerRow(**dict(customer_row)),
-        treatments=[CustomerTreatmentRow(**dict(row)) for row in rows],
+        treatments=[
+            CustomerTreatmentRow(
+                **dict(row),
+                image_url=build_signed_url(row["image_obj_key"]),
+            )
+            for row in rows
+        ],
     )
 
 
