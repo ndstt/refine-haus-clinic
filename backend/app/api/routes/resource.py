@@ -1,9 +1,18 @@
 from fastapi import APIRouter, HTTPException, Query
 
 from app.db.postgres import DataBasePool
-from app.schemas.customer import CustomerOption, CustomerSearchResponse, CustomerCreateRequest, CustomerListResponse, CustomerRow
+from app.schemas.customer import (
+    CustomerOption,
+    CustomerSearchResponse,
+    CustomerCreateRequest,
+    CustomerListResponse,
+    CustomerRow,
+    CustomerTreatmentResponse,
+    CustomerTreatmentRow,
+)
 from app.schemas.inventory import ItemCatalogItem, ItemCatalogPage
 from app.schemas.purchase import SupplierOption, SupplierOptionResponse
+from app.utils.storage import build_signed_url
 
 # Application domain resources will live under /api/v1/resource/*
 router = APIRouter(prefix="/resource", tags=["resource"])
@@ -170,6 +179,85 @@ async def create_customer(payload: CustomerCreateRequest) -> CustomerRow:
             payload.gender,
         )
     return CustomerRow(**dict(row))
+
+
+@router.get("/customers/{customer_id}", response_model=CustomerRow)
+async def get_customer(customer_id: int) -> CustomerRow:
+    pool = await DataBasePool.get_pool()
+    async with pool.acquire() as connection:
+        row = await connection.fetchrow(
+            """
+            SELECT
+              customer_id,
+              customer_code,
+              full_name,
+              nickname,
+              phone,
+              date_of_birth,
+              gender,
+              member_wallet_remain
+            FROM customer
+            WHERE customer_id = $1
+            """,
+            customer_id,
+        )
+    if not row:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    return CustomerRow(**dict(row))
+
+
+@router.get("/customers/{customer_id}/treatments", response_model=CustomerTreatmentResponse)
+async def get_customer_treatments(customer_id: int) -> CustomerTreatmentResponse:
+    pool = await DataBasePool.get_pool()
+    async with pool.acquire() as connection:
+        customer_row = await connection.fetchrow(
+            """
+            SELECT
+              customer_id,
+              customer_code,
+              full_name,
+              nickname,
+              phone,
+              date_of_birth,
+              gender,
+              member_wallet_remain
+            FROM customer
+            WHERE customer_id = $1
+            """,
+            customer_id,
+        )
+        if not customer_row:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        rows = await connection.fetch(
+            """
+            SELECT
+              ts.treatment_id,
+              t.name AS treatment_name,
+              t.image_obj_key,
+              ts.session_date,
+              ts.age_at_session,
+              ts.note,
+              ts.next_appointment_date,
+              ts.sell_invoice_id
+            FROM treatment_session ts
+            JOIN treatment t ON t.treatment_id = ts.treatment_id
+            WHERE ts.customer_id = $1
+            ORDER BY ts.session_date DESC NULLS LAST, ts.treatment_id ASC
+            """,
+            customer_id,
+        )
+
+    return CustomerTreatmentResponse(
+        customer=CustomerRow(**dict(customer_row)),
+        treatments=[
+            CustomerTreatmentRow(
+                **dict(row),
+                image_url=build_signed_url(row["image_obj_key"]),
+            )
+            for row in rows
+        ],
+    )
 
 
 @router.get("/supplier", response_model=SupplierOptionResponse)

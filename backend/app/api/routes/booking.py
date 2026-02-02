@@ -69,6 +69,17 @@ async def create_booking(request: BookingRequest) -> BookingResponse:
                 # 5. Create sell_invoice_item and treatment_session for each treatment
                 for treatment in request.treatments:
                     item_total = treatment.price * treatment.quantity
+                    qty_per_session = await connection.fetchval(
+                        """
+                        SELECT qty_per_session
+                        FROM treatment_recipe
+                        WHERE treatment_id = $1
+                        LIMIT 1
+                        """,
+                        treatment.treatment_id,
+                    )
+                    qty_per_session = 1 if qty_per_session is None else qty_per_session
+                    line_qty = int(treatment.quantity * qty_per_session)
 
                     # Insert into sell_invoice_item
                     await connection.execute(
@@ -79,7 +90,7 @@ async def create_booking(request: BookingRequest) -> BookingResponse:
                         treatment.treatment_id,
                         sell_invoice_id,
                         None,
-                        treatment.quantity,
+                        line_qty,
                         item_total,
                     )
 

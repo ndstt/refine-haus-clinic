@@ -14,3 +14,13 @@ class TreatmentItem(BaseModel):
 class TreatmentListResponse(BaseModel):
     treatments: List[TreatmentItem]
     total: int
+
+
+class TreatmentCategory(BaseModel):
+    category: Optional[str] = None
+    image_obj_key: Optional[str] = None
+    image_url: Optional[str] = None
+
+
+class TreatmentCategoryListResponse(BaseModel):
+    categories: List[TreatmentCategory]

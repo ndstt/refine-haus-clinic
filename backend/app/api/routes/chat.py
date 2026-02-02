@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.agents.runner import run_agent
 from app.db.postgres import DataBasePool
@@ -20,17 +20,33 @@ def _title_from_message(message: str) -> str:
 
 
 @router.get("/conversations", response_model=list[ConversationSummary])
-async def list_conversations() -> list[ConversationSummary]:
+async def list_conversations(
+    search: str | None = Query(default=None, min_length=1),
+) -> list[ConversationSummary]:
     pool = await DataBasePool.get_pool()
     async with pool.acquire() as connection:
-        rows = await connection.fetch(
-            """
-            SELECT conversation_id, title, updated_at
-            FROM conversations
-            ORDER BY updated_at DESC
-            LIMIT 50
-            """
-        )
+        if search:
+            rows = await connection.fetch(
+                """
+                SELECT DISTINCT c.conversation_id, c.title, c.updated_at
+                FROM conversations c
+                JOIN messages m
+                  ON m.conversation_id = c.conversation_id
+                WHERE m.content ILIKE $1
+                ORDER BY c.updated_at DESC
+                LIMIT 50
+                """,
+                f"%{search}%",
+            )
+        else:
+            rows = await connection.fetch(
+                """
+                SELECT conversation_id, title, updated_at
+                FROM conversations
+                ORDER BY updated_at DESC
+                LIMIT 50
+                """
+            )
     return [ConversationSummary(**dict(row)) for row in rows]
 
 

@@ -11,6 +11,7 @@ dependencies = [
   "python-dotenv",
   "langchain_openai",
   "langchain_community",
+  "boto3"
   "pandas",
   "mlxtend",
   "apscheduler"
