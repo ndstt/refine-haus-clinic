@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Header from "./components/Header";
 import DashboardPage from "./components/dashboardPage";
 import InventoryPage from "./components/inventoryPage";
@@ -17,27 +17,31 @@ import AppointmentPage from "./components/appointmentPage";
 import PromotionPage from "./components/promotionPage";
 
 export default function App() {
+  const location = useLocation();
+
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <Header />
       <main className="flex-1">
-        <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/services" element={<ServicePage />} />
-          <Route path="/category/:categoryKey" element={<CategoryDetailPage />} />
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/booking" element={<BookingFormPage />} />
-          <Route path="/success" element={<TransactionCompletedPage />} />
-          <Route path="/receipt" element={<ReceiptPage />} />
-          <Route path="/promotion" element={<PromotionPage />} />
-          <Route path="/inventory" element={<InventoryPage />} />
-          <Route path="/lumina" element={<ChatPage />} />
-          <Route path="/customer" element={<CustomerPage />} />
-          <Route path="/customer/:customerId" element={<CustomerDetailPage />} />
-          <Route path="/appointment" element={<AppointmentPage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <div key={location.pathname} className="page-transition-scale">
+          <Routes location={location}>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/services" element={<ServicePage />} />
+            <Route path="/category/:categoryKey" element={<CategoryDetailPage />} />
+            <Route path="/cart" element={<CartPage />} />
+            <Route path="/booking" element={<BookingFormPage />} />
+            <Route path="/success" element={<TransactionCompletedPage />} />
+            <Route path="/receipt" element={<ReceiptPage />} />
+            <Route path="/promotion" element={<PromotionPage />} />
+            <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/lumina" element={<ChatPage />} />
+            <Route path="/customer" element={<CustomerPage />} />
+            <Route path="/customer/:customerId" element={<CustomerDetailPage />} />
+            <Route path="/appointment" element={<AppointmentPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </div>
       </main>
       <Footer />
     </div>
