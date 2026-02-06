@@ -636,7 +636,9 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
-          <RevenueChart data={revenueChart?.data} />
+          <div className="slide-in-right">
+            <RevenueChart data={revenueChart?.data} />
+          </div>
           {revenueChart && (
             <div className="mt-3 text-right text-sm text-black/50">
               Total: <span className="font-semibold text-black">{formatCurrency(revenueChart.total)}</span>
