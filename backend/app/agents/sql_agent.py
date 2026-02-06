@@ -4,7 +4,7 @@ from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits import create_sql_agent
 
 from config import POSTGRES
-from app.agents.prompts.system import SYSTEM_PROMPT
+from app.agents.prompts.sql_agent import SYSTEM_PROMPT
 from app.services.llm.open_ai import get_chat_llm
 
 logger = logging.getLogger(__name__)
