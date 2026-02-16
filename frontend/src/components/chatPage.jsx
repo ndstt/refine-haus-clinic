@@ -77,6 +77,7 @@ export default function LuminaPage() {
   const [collapsed, setCollapsed] = useState(false);
   const [search, setSearch] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [wantViz, setWantViz] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -152,6 +153,7 @@ export default function LuminaPage() {
         body: JSON.stringify({
           message: text,
           conversation_id: activeConversationId,
+          visualize: wantViz,
         }),
       });
       if (!res.ok) {
@@ -160,9 +162,16 @@ export default function LuminaPage() {
       const data = await res.json();
       const replyText = data?.response ?? "No response.";
       const conversationId = data?.conversation_id ?? activeConversationId;
+      const chartImageBase64 = data?.chart_image_base64 ?? null;
+      const chartMime = data?.chart_mime ?? "image/png";
+      const chartSrc = chartImageBase64
+        ? `data:${chartMime};base64,${chartImageBase64}`
+        : null;
 
       setMessages((prev) =>
-        prev.slice(0, -1).concat({ role: "assistant", text: replyText })
+        prev
+          .slice(0, -1)
+          .concat({ role: "assistant", text: replyText, chartSrc })
       );
       if (conversationId && conversationId !== activeConversationId) {
         setActiveConversationId(conversationId);
@@ -361,6 +370,20 @@ export default function LuminaPage() {
 
                       <button
                         type="button"
+                        onClick={() => setWantViz((value) => !value)}
+                        aria-pressed={wantViz}
+                        title="Visualization"
+                        className={
+                          wantViz
+                            ? "rounded-full bg-black/10 px-3 py-1 text-[12px] text-black"
+                            : "rounded-full px-3 py-1 text-[12px] text-black/50 hover:bg-black/5"
+                        }
+                      >
+                        Viz
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={onSend}
                         className="grid h-9 w-9 place-items-center rounded-full text-black/60 hover:bg-black/5 disabled:opacity-60"
                         aria-label="Send"
@@ -405,7 +428,33 @@ export default function LuminaPage() {
                             : "mr-auto max-w-[80%] rounded-2xl bg-black/5 px-4 py-2 text-[13px] text-black/70 whitespace-pre-wrap"
                         }
                       >
-                        {m.pending ? <ThinkingDots /> : m.text}
+                        {m.pending ? (
+                          <ThinkingDots />
+                        ) : (
+                          <>
+                            {m.role !== "user" &&
+                            typeof m.text === "string" &&
+                            m.text.length > 900 ? (
+                              <details className="group">
+                                <summary className="cursor-pointer select-none text-[12px] text-black/50">
+                                  Show full response
+                                </summary>
+                                <div className="mt-1 whitespace-pre-wrap">{m.text}</div>
+                              </details>
+                            ) : (
+                              m.text
+                            )}
+                            {m.chartSrc ? (
+                              <div className="mt-2">
+                                <img
+                                  src={m.chartSrc}
+                                  alt="Visualization"
+                                  className="max-w-full rounded-xl border border-black/10 bg-white"
+                                />
+                              </div>
+                            ) : null}
+                          </>
+                        )}
                       </div>
                     ))}
                     {sendError ? (
@@ -425,6 +474,20 @@ export default function LuminaPage() {
                       className="w-full bg-transparent text-[14px] text-black/70 placeholder:text-black/35 focus:outline-none"
                       placeholder="Ask here..."
                     />
+
+                    <button
+                      type="button"
+                      onClick={() => setWantViz((value) => !value)}
+                      aria-pressed={wantViz}
+                      title="Visualization"
+                      className={
+                        wantViz
+                          ? "rounded-full bg-black/10 px-3 py-1 text-[12px] text-black"
+                          : "rounded-full px-3 py-1 text-[12px] text-black/50 hover:bg-black/5"
+                      }
+                    >
+                      Viz
+                    </button>
 
                     <button
                       type="button"
