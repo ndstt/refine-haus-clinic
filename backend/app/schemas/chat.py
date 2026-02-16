@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
@@ -9,9 +9,23 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[int] = None
 
 
+class ChartDataset(BaseModel):
+    label: str
+    data: list[Any]
+
+
+class ChartPayload(BaseModel):
+    chart_type: str
+    labels: list[str] = Field(default_factory=list)
+    datasets: list[ChartDataset] = Field(default_factory=list)
+
+
 class ChatResponse(BaseModel):
     response: str
     conversation_id: int
+    sql_query: Optional[str] = None
+    chart: Optional[ChartPayload] = None
+    records: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class SqlChatResponse(BaseModel):
