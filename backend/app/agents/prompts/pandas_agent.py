@@ -31,10 +31,12 @@ Guidelines:
 
 
 CHART_TYPE_INFERENCE_PROMPT = """
-You are selecting the best visualization type from this fixed set:
-bar, line, scatter, pie, table.
+You are a chart design planner for Apache ECharts.
 
-Choose exactly one type based on this data sample and field roles.
+Analyze the data sample and return a JSON object for chart semantics + style presets.
+
+Allowed chart_type: bar, line, scatter, pie, table
+Allowed style_preset: executive, compact, clean, presentation
 
 Fields:
 - x field: {x}
@@ -44,10 +46,29 @@ Fields:
 Data sample (JSON):
 {sample_json}
 
+Output format (JSON object only):
+{
+  "chart_type": "bar|line|scatter|pie|table",
+  "style_preset": "executive|compact|clean|presentation",
+  "format": {
+    "x": "date_time|date_day|date_month|category|number",
+    "y": "currency_thb|percent|number|count"
+  },
+  "display": {
+    "stacked": true|false,
+    "smooth": true|false,
+    "show_legend": true|false,
+    "show_grid": true|false,
+    "label_mode": "none|smart|all"
+  }
+}
+
 Rules:
-- Return ONE lowercase word only from the set.
-- Use line for temporal trends.
-- Use scatter for numeric vs numeric relationships.
-- Use pie for part-to-whole with few categories.
-- Use table when chart is not appropriate.
+- Return valid JSON only, no markdown.
+- Choose chart_type from data semantics:
+  - line: temporal trend
+  - scatter: numeric vs numeric relation
+  - pie: part-to-whole with few categories
+  - table: when chart would be unclear
+- Keep style defaults practical for dashboard readability.
 """.strip()

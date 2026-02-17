@@ -1,4 +1,6 @@
+import ast
 import inspect
+import json
 import logging
 import re
 from datetime import date, datetime
@@ -25,6 +27,15 @@ _SUPPORTED_WINDOW_FUNCTIONS = {"running_total", "rank", "dense_rank", "percent_o
 _SUPPORTED_PIVOT_AGG_FUNCTIONS = {"sum", "mean", "count", "min", "max", "median"}
 _SUPPORTED_RESAMPLE_AGG_FUNCTIONS = {"sum", "mean", "count", "min", "max", "median"}
 _SUPPORTED_CHART_TYPES = {"bar", "line", "scatter", "pie", "table"}
+_SUPPORTED_STYLE_PRESETS = {"executive", "compact", "clean", "presentation"}
+_DEFAULT_FORMAT = {"x": "category", "y": "number"}
+_DEFAULT_DISPLAY = {
+    "stacked": False,
+    "smooth": False,
+    "show_legend": True,
+    "show_grid": True,
+    "label_mode": "smart",
+}
 
 
 def _to_jsonable(value: Any) -> Any:
@@ -68,12 +79,74 @@ def _require_columns(dataframe: pd.DataFrame, columns: list[str]) -> None:
         raise ValueError(f"Columns not found: {', '.join(missing)}")
 
 
-def _infer_chart_type_with_llm(
+def _extract_json_object(text: str) -> dict[str, Any] | None:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+
+    candidates = [cleaned]
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start >= 0 and end > start:
+        candidates.append(cleaned[start : end + 1])
+
+    for candidate in candidates:
+        for parser in (json.loads, ast.literal_eval):
+            try:
+                value = parser(candidate)
+            except Exception:
+                continue
+            if isinstance(value, dict):
+                return value
+    return None
+
+
+def _normalize_chart_design(payload: dict[str, Any]) -> dict[str, Any]:
+    chart_type = str(payload.get("chart_type", "bar")).lower()
+    if chart_type not in _SUPPORTED_CHART_TYPES:
+        chart_type = "bar"
+
+    style_preset = str(payload.get("style_preset", "clean")).lower()
+    if style_preset not in _SUPPORTED_STYLE_PRESETS:
+        style_preset = "clean"
+
+    payload_format = payload.get("format")
+    if not isinstance(payload_format, dict):
+        payload_format = {}
+    format_map = {
+        "x": str(payload_format.get("x", _DEFAULT_FORMAT["x"])),
+        "y": str(payload_format.get("y", _DEFAULT_FORMAT["y"])),
+    }
+
+    payload_display = payload.get("display")
+    if not isinstance(payload_display, dict):
+        payload_display = {}
+    display = {
+        "stacked": bool(payload_display.get("stacked", _DEFAULT_DISPLAY["stacked"])),
+        "smooth": bool(payload_display.get("smooth", _DEFAULT_DISPLAY["smooth"])),
+        "show_legend": bool(payload_display.get("show_legend", _DEFAULT_DISPLAY["show_legend"])),
+        "show_grid": bool(payload_display.get("show_grid", _DEFAULT_DISPLAY["show_grid"])),
+        "label_mode": str(payload_display.get("label_mode", _DEFAULT_DISPLAY["label_mode"])),
+    }
+
+    if display["label_mode"] not in {"none", "smart", "all"}:
+        display["label_mode"] = _DEFAULT_DISPLAY["label_mode"]
+
+    return {
+        "chart_type": chart_type,
+        "style_preset": style_preset,
+        "format": format_map,
+        "display": display,
+    }
+
+
+def _infer_chart_design_with_llm(
     records: list[dict[str, Any]],
     x: str,
     y: str,
     series: str | None,
-) -> str:
+) -> dict[str, Any]:
     sample = records[:30]
     llm = get_chat_llm()
     prompt = CHART_TYPE_INFERENCE_PROMPT.format(
@@ -91,14 +164,17 @@ def _infer_chart_type_with_llm(
                 str(item.get("text", item)) if isinstance(item, dict) else str(item)
                 for item in content
             )
+        parsed = _extract_json_object(str(content))
+        if parsed:
+            return _normalize_chart_design(parsed)
         text = str(content).strip().lower()
         match = re.search(r"\b(bar|line|scatter|pie|table)\b", text)
         if match:
-            return match.group(1)
+            return _normalize_chart_design({"chart_type": match.group(1)})
     except Exception as exc:
-        logger.warning("Chart type inference failed, fallback to bar: %s", exc)
+        logger.warning("Chart design inference failed, fallback defaults: %s", exc)
 
-    return "bar"
+    return _normalize_chart_design({})
 
 
 def tool_get_schema(dataframe: pd.DataFrame) -> dict[str, Any]:
@@ -436,12 +512,38 @@ def tool_build_chart_payload(
     chart_type input is intentionally ignored. Type is inferred by LLM from the data.
     """
     _ = chart_type
+
+    def _series_meta_from_datasets(datasets: list[dict[str, Any]]) -> list[dict[str, str]]:
+        tokens = [
+            "brand_primary",
+            "brand_secondary",
+            "accent_1",
+            "accent_2",
+            "accent_3",
+            "neutral_strong",
+        ]
+        meta: list[dict[str, str]] = []
+        for index, dataset in enumerate(datasets):
+            label = str(dataset.get("label", f"Series {index + 1}"))
+            meta.append(
+                {
+                    "key": label,
+                    "color_token": tokens[index % len(tokens)],
+                }
+            )
+        return meta
+
+    default_design = _normalize_chart_design({})
     if not records:
         return {
             "chart_type": "table",
             "labels": [],
             "datasets": [],
             "records": [],
+            "style_preset": default_design["style_preset"],
+            "format": default_design["format"],
+            "display": default_design["display"],
+            "series_meta": [],
         }
 
     data = pd.DataFrame(records)
@@ -457,16 +559,19 @@ def tool_build_chart_payload(
             "labels": [],
             "datasets": [],
             "records": [],
+            "style_preset": default_design["style_preset"],
+            "format": default_design["format"],
+            "display": default_design["display"],
+            "series_meta": [],
         }
 
-    chart_kind = _infer_chart_type_with_llm(
+    chart_design = _infer_chart_design_with_llm(
         records=_records_from_dataframe(data),
         x=x,
         y=y,
         series=series,
     )
-    if chart_kind not in _SUPPORTED_CHART_TYPES:
-        chart_kind = "bar"
+    chart_kind = chart_design["chart_type"]
 
     if chart_kind == "table":
         table_records = _records_from_dataframe(data)
@@ -475,6 +580,10 @@ def tool_build_chart_payload(
             "labels": [],
             "datasets": [],
             "records": table_records,
+            "style_preset": chart_design["style_preset"],
+            "format": chart_design["format"],
+            "display": chart_design["display"],
+            "series_meta": [],
         }
 
     if chart_kind == "scatter":
@@ -504,6 +613,10 @@ def tool_build_chart_payload(
             "labels": labels,
             "datasets": datasets,
             "records": chart_records,
+            "style_preset": chart_design["style_preset"],
+            "format": chart_design["format"],
+            "display": chart_design["display"],
+            "series_meta": _series_meta_from_datasets(datasets),
         }
 
     if chart_kind == "pie":
@@ -515,6 +628,10 @@ def tool_build_chart_payload(
             "labels": labels,
             "datasets": [{"label": y, "data": dataset_values}],
             "records": _records_from_dataframe(pie_df),
+            "style_preset": chart_design["style_preset"],
+            "format": chart_design["format"],
+            "display": chart_design["display"],
+            "series_meta": [{"key": y, "color_token": "brand_primary"}],
         }
 
     if series:
@@ -555,6 +672,10 @@ def tool_build_chart_payload(
         "labels": labels,
         "datasets": datasets,
         "records": chart_records,
+        "style_preset": chart_design["style_preset"],
+        "format": chart_design["format"],
+        "display": chart_design["display"],
+        "series_meta": _series_meta_from_datasets(datasets),
     }
 
 
@@ -663,7 +784,7 @@ def build_pandas_tools(dataframe: pd.DataFrame) -> list[StructuredTool]:
         StructuredTool.from_function(
             func=build_chart_payload_tool,
             name="build_chart_payload",
-            description="Build frontend chart payload from records: {chart_type, labels, datasets, records}. chart_type is inferred by LLM from data.",
+            description="Build frontend chart payload from records: {chart_type, labels, datasets, records, style_preset, format, display, series_meta}. chart_type/style are inferred by LLM from data.",
         ),
     ]
 
