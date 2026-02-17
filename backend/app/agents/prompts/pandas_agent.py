@@ -28,3 +28,26 @@ Guidelines:
     6) If the data is insufficient or incompatible with the requested chart (e.g., missing columns, non-numeric values for numeric plots), explain the issue and suggest a workable alternative.
     7) Finally, call the plotting tool with the correct parameters and return the generated chart output.
 """
+
+
+CHART_TYPE_INFERENCE_PROMPT = """
+You are selecting the best visualization type from this fixed set:
+bar, line, scatter, pie, table.
+
+Choose exactly one type based on this data sample and field roles.
+
+Fields:
+- x field: {x}
+- y field: {y}
+- series field: {series}
+
+Data sample (JSON):
+{sample_json}
+
+Rules:
+- Return ONE lowercase word only from the set.
+- Use line for temporal trends.
+- Use scatter for numeric vs numeric relationships.
+- Use pie for part-to-whole with few categories.
+- Use table when chart is not appropriate.
+""".strip()
