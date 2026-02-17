@@ -9,6 +9,8 @@ from app.services.llm.open_ai import get_chat_llm
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 
 logger = logging.getLogger(__name__)
+_pandas_agent = None
+_pandas_agent_df_id = None
 
 
 
@@ -25,7 +27,6 @@ def create_pandas_agent_executor(dataframe: pd.DataFrame):
         raise ValueError("dataframe is empty")
 
     logger.info("Initializing LangChain Pandas DataFrame Agent...")
-    create_pandas_dataframe_agent = create_pandas_dataframe_agent()
     llm = get_chat_llm()
 
     signature = inspect.signature(create_pandas_dataframe_agent)
@@ -51,3 +52,11 @@ def create_pandas_agent_executor(dataframe: pd.DataFrame):
 
     return create_pandas_dataframe_agent(**kwargs)
 
+
+def get_pandas_agent_executor(dataframe: pd.DataFrame):
+    global _pandas_agent, _pandas_agent_df_id
+    dataframe_id = id(dataframe)
+    if _pandas_agent is None or _pandas_agent_df_id != dataframe_id:
+        _pandas_agent = create_pandas_agent_executor(dataframe)
+        _pandas_agent_df_id = dataframe_id
+    return _pandas_agent
