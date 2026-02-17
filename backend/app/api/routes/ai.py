@@ -1,4 +1,6 @@
 import logging
+import json
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
@@ -10,6 +12,7 @@ from app.schemas.chat import ChatRequest, SqlChatResponse
 router = APIRouter(prefix="/ai", tags=["ai"])
 
 logger = logging.getLogger(__name__)
+_messages_payload_json_supported: bool | None = None
 
 
 def _title_from_message(message: str) -> str:
@@ -32,6 +35,64 @@ def _extract_sql_query(intermediate_steps) -> str | None:
     return None
 
 
+async def _messages_support_payload_json(connection) -> bool:
+    global _messages_payload_json_supported
+    if _messages_payload_json_supported is not None:
+        return _messages_payload_json_supported
+
+    exists = await connection.fetchval(
+        """
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = current_schema()
+            AND table_name = 'messages'
+            AND column_name = 'payload_json'
+        )
+        """
+    )
+    _messages_payload_json_supported = bool(exists)
+    return _messages_payload_json_supported
+
+
+async def _insert_message(
+    connection,
+    conversation_id: int,
+    role: str,
+    content: str,
+    payload_json: dict[str, Any] | None = None,
+) -> None:
+    supports_payload_json = await _messages_support_payload_json(connection)
+    if supports_payload_json:
+        payload_value = json.dumps(payload_json) if payload_json is not None else None
+        await connection.execute(
+            """
+            INSERT INTO messages (conversation_id, role, content, payload_json)
+            VALUES ($1, $2::chat_role, $3, $4::jsonb)
+            """,
+            conversation_id,
+            role,
+            content,
+            payload_value,
+        )
+        return
+
+    await connection.execute(
+        """
+        INSERT INTO messages (conversation_id, role, content)
+        VALUES ($1, $2::chat_role, $3)
+        """,
+        conversation_id,
+        role,
+        content,
+    )
+    if payload_json is not None:
+        logger.warning(
+            "payload_json was provided but messages.payload_json column is missing. "
+            "Run schema migration before storing payload data."
+        )
+
+
 @router.post("/chat", response_model=SqlChatResponse)
 async def sql_chat(payload: ChatRequest) -> SqlChatResponse:
     pool = await DataBasePool.get_pool()
@@ -46,13 +107,11 @@ async def sql_chat(payload: ChatRequest) -> SqlChatResponse:
         else:
             conversation_id = payload.conversation_id
 
-        await connection.execute(
-            """
-            INSERT INTO messages (conversation_id, role, content)
-            VALUES ($1, 'USER', $2)
-            """,
-            conversation_id,
-            payload.message,
+        await _insert_message(
+            connection=connection,
+            conversation_id=conversation_id,
+            role="USER",
+            content=payload.message,
         )
 
         title = _title_from_message(payload.message)
@@ -77,13 +136,12 @@ async def sql_chat(payload: ChatRequest) -> SqlChatResponse:
         sql_query = None
 
     async with pool.acquire() as connection:
-        await connection.execute(
-            """
-            INSERT INTO messages (conversation_id, role, content)
-            VALUES ($1, 'SYSTEM', $2)
-            """,
-            conversation_id,
-            response,
+        await _insert_message(
+            connection=connection,
+            conversation_id=conversation_id,
+            role="SYSTEM",
+            content=response,
+            payload_json={"sql_query": sql_query} if sql_query else None,
         )
 
     return SqlChatResponse(
