@@ -90,6 +90,7 @@ CREATE TABLE messages (
   conversation_id bigint NOT NULL REFERENCES conversations(conversation_id) ON DELETE CASCADE,
   role            chat_role NOT NULL,
   content         TEXT NOT NULL,
+  payload_json    JSONB,
   token_count     INT,
   model           TEXT,
   created_at      timestamp DEFAULT (now())

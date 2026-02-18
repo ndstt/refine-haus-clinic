@@ -29,6 +29,8 @@ _SUPPORTED_RESAMPLE_AGG_FUNCTIONS = {"sum", "mean", "count", "min", "max", "medi
 _SUPPORTED_CHART_TYPES = {"bar", "line", "scatter", "pie", "table"}
 _SUPPORTED_STYLE_PRESETS = {"executive", "compact", "clean", "presentation"}
 _DEFAULT_FORMAT = {"x": "category", "y": "number"}
+_PIE_MAX_SLICES = 6
+_PIE_OTHER_LABEL = "Other"
 _DEFAULT_DISPLAY = {
     "stacked": False,
     "smooth": False,
@@ -102,6 +104,88 @@ def _extract_json_object(text: str) -> dict[str, Any] | None:
     return None
 
 
+def _humanize_field_name(name: str) -> str:
+    cleaned = re.sub(r"[_\s]+", " ", str(name)).strip()
+    if not cleaned:
+        return "Value"
+    return cleaned[:1].upper() + cleaned[1:]
+
+
+def _default_chart_title(x: str, y: str, chart_type: str) -> str:
+    x_label = _humanize_field_name(x)
+    y_label = _humanize_field_name(y)
+    if chart_type == "scatter":
+        return f"{y_label} vs {x_label}"
+    if chart_type == "pie":
+        return f"Share of {y_label} by {x_label}"
+    return f"{y_label} by {x_label}"
+
+
+def _compact_user_question_title(user_question: str | None, max_len: int = 80) -> str:
+    if not user_question:
+        return ""
+    cleaned = " ".join(str(user_question).strip().split())
+    if not cleaned:
+        return ""
+    if len(cleaned) <= max_len:
+        return cleaned
+    return cleaned[: max_len - 3].rstrip() + "..."
+
+
+def _is_share_intent(user_question: str | None) -> bool:
+    if not user_question:
+        return False
+    normalized = str(user_question).lower()
+    keywords = (
+        "share",
+        "proportion",
+        "distribution",
+        "composition",
+        "breakdown",
+        "สัดส่วน",
+        "สรุปสัดส่วน",
+        "กระจาย",
+        "แบ่งตาม",
+    )
+    return any(keyword in normalized for keyword in keywords)
+
+
+def _is_generic_chart_title(title: str) -> bool:
+    normalized = " ".join((title or "").strip().lower().split())
+    generic_titles = {
+        "",
+        "visualization",
+        "chart",
+        "product sales overview",
+        "distribution of categories",
+    }
+    return normalized in generic_titles
+
+
+def _compress_pie_categories(
+    dataframe: pd.DataFrame,
+    x: str,
+    y: str,
+    max_slices: int = _PIE_MAX_SLICES,
+    other_label: str = _PIE_OTHER_LABEL,
+) -> pd.DataFrame:
+    if dataframe.empty:
+        return dataframe
+    if max_slices < 2:
+        max_slices = 2
+
+    sorted_df = dataframe.sort_values(y, ascending=False, kind="stable").reset_index(drop=True)
+    if len(sorted_df) <= max_slices:
+        return sorted_df
+
+    keep_count = max_slices - 1
+    top_df = sorted_df.head(keep_count).copy()
+    other_sum = float(sorted_df.iloc[keep_count:][y].sum())
+
+    other_row = pd.DataFrame([{x: other_label, y: other_sum}])
+    return pd.concat([top_df, other_row], ignore_index=True)
+
+
 def _normalize_chart_design(payload: dict[str, Any]) -> dict[str, Any]:
     chart_type = str(payload.get("chart_type", "bar")).lower()
     if chart_type not in _SUPPORTED_CHART_TYPES:
@@ -133,7 +217,12 @@ def _normalize_chart_design(payload: dict[str, Any]) -> dict[str, Any]:
     if display["label_mode"] not in {"none", "smart", "all"}:
         display["label_mode"] = _DEFAULT_DISPLAY["label_mode"]
 
+    title = str(payload.get("title", "")).strip()
+    if len(title) > 80:
+        title = title[:80].rstrip()
+
     return {
+        "title": title,
         "chart_type": chart_type,
         "style_preset": style_preset,
         "format": format_map,
@@ -146,17 +235,18 @@ def _infer_chart_design_with_llm(
     x: str,
     y: str,
     series: str | None,
+    user_question: str | None = None,
 ) -> dict[str, Any]:
-    sample = records[:30]
-    llm = get_chat_llm()
-    prompt = CHART_TYPE_INFERENCE_PROMPT.format(
-        x=x,
-        y=y,
-        series=series if series else "none",
-        sample_json=sample,
-    )
-
     try:
+        sample = records[:30]
+        llm = get_chat_llm()
+        prompt = CHART_TYPE_INFERENCE_PROMPT.format(
+            user_question=user_question or "none",
+            x=x,
+            y=y,
+            series=series if series else "none",
+            sample_json=sample,
+        )
         response = llm.invoke(prompt)
         content = getattr(response, "content", response)
         if isinstance(content, list):
@@ -504,6 +594,7 @@ def tool_build_chart_payload(
     x: str,
     y: str,
     series: str | None = None,
+    user_question: str | None = None,
     chart_type: str | None = None,
 ) -> dict[str, Any]:
     """
@@ -534,12 +625,17 @@ def tool_build_chart_payload(
         return meta
 
     default_design = _normalize_chart_design({})
+    default_title = _default_chart_title(x, y, "table")
     if not records:
         return {
+            "title": default_title,
             "chart_type": "table",
             "labels": [],
             "datasets": [],
             "records": [],
+            "x_field": x,
+            "y_field": y,
+            "series_field": series,
             "style_preset": default_design["style_preset"],
             "format": default_design["format"],
             "display": default_design["display"],
@@ -553,12 +649,25 @@ def tool_build_chart_payload(
     data = data.copy()
     data[y] = pd.to_numeric(data[y], errors="coerce")
     data = data.dropna(subset=[y])
+    series_field = series
+    if series_field:
+        series_numeric_ratio = pd.to_numeric(
+            data[series_field],
+            errors="coerce",
+        ).notna().mean()
+        if series_numeric_ratio >= 0.8:
+            series_field = None
+
     if data.empty:
         return {
+            "title": default_title,
             "chart_type": "table",
             "labels": [],
             "datasets": [],
             "records": [],
+            "x_field": x,
+            "y_field": y,
+            "series_field": series_field,
             "style_preset": default_design["style_preset"],
             "format": default_design["format"],
             "display": default_design["display"],
@@ -569,17 +678,33 @@ def tool_build_chart_payload(
         records=_records_from_dataframe(data),
         x=x,
         y=y,
-        series=series,
+        series=series_field,
+        user_question=user_question,
     )
+
+    share_intent = _is_share_intent(user_question)
     chart_kind = chart_design["chart_type"]
+    if share_intent:
+        chart_kind = "pie"
+
+    inferred_title = str(chart_design.get("title", "")).strip()
+    question_title = _compact_user_question_title(user_question)
+    if question_title and _is_generic_chart_title(inferred_title):
+        chart_title = question_title
+    else:
+        chart_title = inferred_title or question_title or _default_chart_title(x, y, chart_kind)
 
     if chart_kind == "table":
         table_records = _records_from_dataframe(data)
         return {
+            "title": chart_title,
             "chart_type": "table",
             "labels": [],
             "datasets": [],
             "records": table_records,
+            "x_field": x,
+            "y_field": y,
+            "series_field": series_field,
             "style_preset": chart_design["style_preset"],
             "format": chart_design["format"],
             "display": chart_design["display"],
@@ -587,9 +712,9 @@ def tool_build_chart_payload(
         }
 
     if chart_kind == "scatter":
-        if series:
+        if series_field:
             datasets: list[dict[str, Any]] = []
-            for series_name, group in data.groupby(series, dropna=False):
+            for series_name, group in data.groupby(series_field, dropna=False):
                 points = [
                     {"x": _to_jsonable(row[x]), "y": float(row[y])}
                     for _, row in group.iterrows()
@@ -600,7 +725,7 @@ def tool_build_chart_payload(
                         "data": points,
                     }
                 )
-            chart_records = _records_from_dataframe(data[[x, y, series]])
+            chart_records = _records_from_dataframe(data[[x, y, series_field]])
             labels = [str(value) for value in data[x].tolist()]
         else:
             points = [{"x": _to_jsonable(row[x]), "y": float(row[y])} for _, row in data.iterrows()]
@@ -609,10 +734,14 @@ def tool_build_chart_payload(
             labels = [str(value) for value in data[x].tolist()]
 
         return {
+            "title": chart_title,
             "chart_type": "scatter",
             "labels": labels,
             "datasets": datasets,
             "records": chart_records,
+            "x_field": x,
+            "y_field": y,
+            "series_field": series_field,
             "style_preset": chart_design["style_preset"],
             "format": chart_design["format"],
             "display": chart_design["display"],
@@ -621,24 +750,29 @@ def tool_build_chart_payload(
 
     if chart_kind == "pie":
         pie_df = data.groupby(x, dropna=False, as_index=False)[y].sum()
+        pie_df = _compress_pie_categories(pie_df, x=x, y=y)
         labels = [str(value) for value in pie_df[x].tolist()]
         dataset_values = [float(value) for value in pie_df[y].tolist()]
         return {
+            "title": chart_title,
             "chart_type": "pie",
             "labels": labels,
             "datasets": [{"label": y, "data": dataset_values}],
             "records": _records_from_dataframe(pie_df),
+            "x_field": x,
+            "y_field": y,
+            "series_field": series_field,
             "style_preset": chart_design["style_preset"],
             "format": chart_design["format"],
             "display": chart_design["display"],
             "series_meta": [{"key": y, "color_token": "brand_primary"}],
         }
 
-    if series:
+    if series_field:
         chart_df = pd.pivot_table(
             data,
             index=x,
-            columns=series,
+            columns=series_field,
             values=y,
             aggfunc="sum",
             fill_value=0,
@@ -668,10 +802,14 @@ def tool_build_chart_payload(
         chart_records = _records_from_dataframe(chart_df)
 
     return {
+        "title": chart_title,
         "chart_type": chart_kind,
         "labels": labels,
         "datasets": datasets,
         "records": chart_records,
+        "x_field": x,
+        "y_field": y,
+        "series_field": series_field,
         "style_preset": chart_design["style_preset"],
         "format": chart_design["format"],
         "display": chart_design["display"],
@@ -740,6 +878,7 @@ def build_pandas_tools(dataframe: pd.DataFrame) -> list[StructuredTool]:
         x: str,
         y: str,
         series: str | None = None,
+        user_question: str | None = None,
         chart_type: str | None = None,
     ) -> dict[str, Any]:
         return tool_build_chart_payload(
@@ -747,6 +886,7 @@ def build_pandas_tools(dataframe: pd.DataFrame) -> list[StructuredTool]:
             x=x,
             y=y,
             series=series,
+            user_question=user_question,
             chart_type=chart_type,
         )
 
@@ -784,7 +924,7 @@ def build_pandas_tools(dataframe: pd.DataFrame) -> list[StructuredTool]:
         StructuredTool.from_function(
             func=build_chart_payload_tool,
             name="build_chart_payload",
-            description="Build frontend chart payload from records: {chart_type, labels, datasets, records, style_preset, format, display, series_meta}. chart_type/style are inferred by LLM from data.",
+            description="Build frontend chart payload from records: {chart_type, labels, datasets, records, style_preset, format, display, series_meta}. Include user_question for better intent-aware chart inference. chart_type/style are inferred by LLM from data.",
         ),
     ]
 

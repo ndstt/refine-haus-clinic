@@ -14,8 +14,7 @@ dependencies = [
   "langchain_community",
   "boto3",
   "pandas",
-  "matplotlib",
-  "seaborn",
+  "tabulate",
   "mlxtend",
   "apscheduler"
 ]

@@ -1,6 +1,10 @@
+import json
+import logging
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Query
 
-from app.agents.runner import run_agent
+from app.agents.runner import run_sql_agent
 from app.db.postgres import DataBasePool
 from app.schemas.chat import (
     ChatRequest,
@@ -10,6 +14,8 @@ from app.schemas.chat import (
 )
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+_messages_payload_json_supported: bool | None = None
+logger = logging.getLogger(__name__)
 
 
 def _title_from_message(message: str) -> str:
@@ -17,6 +23,37 @@ def _title_from_message(message: str) -> str:
     if len(cleaned) <= 60:
         return cleaned
     return f"{cleaned[:57]}..."
+
+
+def _coerce_payload_json(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+
+    if isinstance(value, (bytes, bytearray)):
+        value = value.decode("utf-8", errors="ignore")
+
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            logger.warning("Invalid payload_json string in message row: %s", text[:120])
+            return None
+
+        # Handle legacy double-encoded JSON strings.
+        if isinstance(parsed, str):
+            try:
+                parsed = json.loads(parsed)
+            except json.JSONDecodeError:
+                return None
+
+        return parsed if isinstance(parsed, dict) else None
+
+    return None
 
 
 @router.get("/conversations", response_model=list[ConversationSummary])
@@ -54,16 +91,47 @@ async def list_conversations(
 async def list_messages(conversation_id: int) -> list[MessageItem]:
     pool = await DataBasePool.get_pool()
     async with pool.acquire() as connection:
-        rows = await connection.fetch(
-            """
-            SELECT message_id, role, content, created_at
-            FROM messages
-            WHERE conversation_id = $1
-            ORDER BY created_at ASC, message_id ASC
-            """,
-            conversation_id,
-        )
-    return [MessageItem(**dict(row)) for row in rows]
+        global _messages_payload_json_supported
+        if _messages_payload_json_supported is None:
+            exists = await connection.fetchval(
+                """
+                SELECT EXISTS (
+                  SELECT 1
+                  FROM information_schema.columns
+                  WHERE table_schema = current_schema()
+                    AND table_name = 'messages'
+                    AND column_name = 'payload_json'
+                )
+                """
+            )
+            _messages_payload_json_supported = bool(exists)
+
+        if _messages_payload_json_supported:
+            rows = await connection.fetch(
+                """
+                SELECT message_id, role, content, payload_json, created_at
+                FROM messages
+                WHERE conversation_id = $1
+                ORDER BY created_at ASC, message_id ASC
+                """,
+                conversation_id,
+            )
+        else:
+            rows = await connection.fetch(
+                """
+                SELECT message_id, role, content, NULL::jsonb AS payload_json, created_at
+                FROM messages
+                WHERE conversation_id = $1
+                ORDER BY created_at ASC, message_id ASC
+                """,
+                conversation_id,
+            )
+    items: list[MessageItem] = []
+    for row in rows:
+        item = dict(row)
+        item["payload_json"] = _coerce_payload_json(item.get("payload_json"))
+        items.append(MessageItem(**item))
+    return items
 
 
 @router.post("", response_model=ChatResponse)
@@ -100,7 +168,7 @@ async def chat(payload: ChatRequest) -> ChatResponse:
             title,
         )
 
-        response = run_agent(payload.message)
+        response = run_sql_agent(payload.message)
 
         await connection.execute(
             """

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import ChatPayloadChart from "./ChatPayloadChart";
 
 // Lumina (Chatbot) page
 // Goal: match Inventory page layout
@@ -115,6 +116,7 @@ export default function LuminaPage() {
         ? data.map((msg) => ({
             role: msg.role === "USER" ? "user" : "assistant",
             text: msg.content,
+            payload: msg.payload_json ?? null,
           }))
         : [];
       setMessages(normalized);
@@ -147,7 +149,7 @@ export default function LuminaPage() {
     }, 0);
 
     try {
-      const res = await fetch(`${apiBase}/chat`, {
+      const res = await fetch(`${apiBase}/ai/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -162,19 +164,17 @@ export default function LuminaPage() {
       const data = await res.json();
       const replyText = data?.response ?? "No response.";
       const conversationId = data?.conversation_id ?? activeConversationId;
-      const chartImageBase64 = data?.chart_image_base64 ?? null;
-      const chartMime = data?.chart_mime ?? "image/png";
-      const chartSrc = chartImageBase64
-        ? `data:${chartMime};base64,${chartImageBase64}`
-        : null;
 
       setMessages((prev) =>
         prev
           .slice(0, -1)
-          .concat({ role: "assistant", text: replyText, chartSrc })
+          .concat({ role: "assistant", text: replyText })
       );
-      if (conversationId && conversationId !== activeConversationId) {
-        setActiveConversationId(conversationId);
+      if (conversationId) {
+        if (conversationId !== activeConversationId) {
+          setActiveConversationId(conversationId);
+        }
+        await loadMessages(conversationId);
       }
       await loadConversations(search.trim());
     } catch (err) {
@@ -425,7 +425,9 @@ export default function LuminaPage() {
                         className={
                           m.role === "user"
                             ? "ml-auto max-w-[80%] rounded-2xl bg-white px-4 py-2 text-[13px] text-black/75 shadow-sm whitespace-pre-wrap"
-                            : "mr-auto max-w-[80%] rounded-2xl bg-black/5 px-4 py-2 text-[13px] text-black/70 whitespace-pre-wrap"
+                            : m.payload
+                              ? "mr-auto max-w-[95%] rounded-2xl bg-black/5 px-3 py-3 text-[13px] text-black/70 whitespace-pre-wrap"
+                              : "mr-auto max-w-[80%] rounded-2xl bg-black/5 px-4 py-2 text-[13px] text-black/70 whitespace-pre-wrap"
                         }
                       >
                         {m.pending ? (
@@ -444,13 +446,9 @@ export default function LuminaPage() {
                             ) : (
                               m.text
                             )}
-                            {m.chartSrc ? (
+                            {m.payload ? (
                               <div className="mt-2">
-                                <img
-                                  src={m.chartSrc}
-                                  alt="Visualization"
-                                  className="max-w-full rounded-xl border border-black/10 bg-white"
-                                />
+                                <ChatPayloadChart payload={m.payload} />
                               </div>
                             ) : null}
                           </>

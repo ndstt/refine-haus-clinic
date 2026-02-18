@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 class ChatRequest(BaseModel):
     message: str
     conversation_id: Optional[int] = None
+    visualize: bool = False
 
 
 class ChartDataset(BaseModel):
@@ -44,4 +45,5 @@ class MessageItem(BaseModel):
     message_id: int
     role: str
     content: str
+    payload_json: Optional[dict[str, Any]] = None
     created_at: datetime

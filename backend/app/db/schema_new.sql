@@ -53,6 +53,7 @@ CREATE TABLE public.messages (
   conversation_id bigint NOT NULL,
   role USER-DEFINED NOT NULL,
   content text NOT NULL,
+  payload_json jsonb,
   token_count integer,
   model text,
   created_at timestamp without time zone DEFAULT now(),
